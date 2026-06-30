@@ -1,0 +1,291 @@
+# Thinkit by Dwarika - UI/UX Design Only (No Backend)
+
+Create a modern, premium, clean, and mobile-first grocery delivery application called **"Thinkit by Dwarika"**.
+
+Important:
+
+* Build ONLY the UI and screen navigation.
+* Do NOT implement backend, database, APIs, authentication logic, payment systems, or admin functionality yet.
+* Use mock data wherever needed.
+* The design should feel premium, fast, simple, and easy to use for local Indian customers.
+* Take inspiration from Blinkit, Zepto, and Instamart, but create a unique identity for Thinkit by Dwarika.
+* Light theme only.
+* Smooth animations and professional transitions.
+* Fully responsive for Android devices.
+
+## Branding
+
+App Name: Thinkit by Dwarika
+
+Tagline:
+"Groceries Delivered in Minutes"
+
+Design Style:
+
+* Modern
+* Minimal
+* Premium
+* Clean
+* Fast and user-friendly
+* Large touch-friendly buttons
+* Consistent spacing and typography
+
+---
+
+# Screens Required
+
+## 1. Splash Screen
+
+* Thinkit by Dwarika logo
+* Tagline
+* Clean loading animation
+
+---
+
+## 2. Google Sign-In Screen
+
+* Continue with Google button
+* Premium grocery app design
+
+---
+
+## 3. First-Time Profile Setup Screen
+
+Fields:
+
+* Full Name
+* Mobile Number
+* House Number
+* Area/Colony
+* Landmark
+* Pincode
+
+Single address only.
+
+---
+
+## 4. Home Screen
+
+Top Header:
+
+* Customer delivery address on top left
+* Notification icon on top right
+
+Search Section:
+
+* Search bar with placeholder:
+  "Search for atta, biscuits, oil..."
+
+Offer Section:
+
+* Promotional banner carousel
+
+Categories Section:
+
+Row 1:
+
+* Atta, Rice & Dal
+* Dairy & Bread
+* Oil & Ghee
+* Biscuits & Snacks
+
+Row 2:
+
+* Masale
+* Beverages
+* Home Care
+* Personal Care
+
+Row 3:
+
+* Baby Care
+* Pooja Items
+* Dry Fruits & Nuts
+* Breakfast & Cereals
+
+Add:
+
+* View All Categories button
+
+Sections below:
+
+* Best Sellers
+* Dwarika Specials
+
+Bottom Navigation:
+
+* Home
+* Categories
+* Cart
+* Orders
+* Profile
+
+---
+
+## 5. Categories Screen
+
+Display all categories in a clean grid layout.
+
+---
+
+## 6. Subcategory Screen
+
+When a category is clicked, show its subcategories.
+
+Example:
+
+Atta, Rice & Dal:
+
+* Atta
+* Rice
+* Dal
+* Besan
+* Suji
+* Poha
+* Daliya
+
+Use mock data.
+
+---
+
+## 7. Product Listing Screen
+
+Each product card should include:
+
+* Product image
+* Brand name
+* Product name
+* Weight/variant
+* MRP
+* Selling price
+* Add to Cart button
+* In Stock or Out of Stock label
+
+Do not display exact quantity available.
+
+---
+
+## 8. Product Details Screen
+
+Include:
+
+* Large product image
+* Product name
+* Brand
+* Weight variants
+* MRP
+* Selling price
+* Similar products section
+* Add to Cart button
+
+---
+
+## 9. Cart Screen
+
+Include:
+
+* Product image
+* Product name
+* Quantity controls
+* Remove button
+* Price summary
+
+Rules:
+
+* Minimum order ₹100
+* Free delivery above ₹299
+* ₹20 delivery charge below ₹299
+
+Show order notes field.
+
+Payment method:
+
+* Cash on Delivery
+* UPI payment at doorstep
+
+No online payment gateway.
+
+---
+
+## 10. Checkout Screen
+
+Include:
+
+* Customer details
+* Delivery address
+* Order summary
+* Order notes
+* Place Order button
+
+---
+
+## 11. My Orders Screen
+
+Two sections:
+
+* Active Orders
+* Order History
+
+Order statuses:
+
+* Order Received
+* Packing
+* Out For Delivery
+* Delivered
+
+No live tracking.
+
+Include:
+
+* View Details button
+* Call Dwarika button
+
+---
+
+## 12. Profile Screen
+
+Include:
+
+* Google profile photo
+* Name
+* Mobile number
+* Single address
+* Edit address
+* My Orders
+* My Coupons
+* Call Dwarika
+* WhatsApp Support
+* Rate Us
+* Privacy Policy
+* Logout
+
+No multiple addresses.
+
+---
+
+## 13. Admin Dashboard UI (Design Only)
+
+Create only the dashboard design.
+
+Include:
+
+* Today's Orders
+* Today's Sales
+* Average Delivery Time
+* Orders Out For Delivery
+* Pending Orders
+* New Orders Counter
+
+Create modern UI screens for:
+
+* Product Management
+* Bulk CSV Upload
+* Order Management
+* Coupons
+* Banner Management
+
+No backend implementation.
+
+---
+
+Build a complete, polished, production-quality UI prototype with proper screen navigation and premium user experience, but without implementing backend functionality.
