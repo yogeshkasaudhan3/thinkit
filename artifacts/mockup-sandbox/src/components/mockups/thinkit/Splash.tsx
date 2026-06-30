@@ -13,7 +13,7 @@ export default function Splash() {
         <img 
           src="/__mockup/images/thinkit-logo.png" 
           alt="Thinkit Logo" 
-          className="w-48 mb-6 drop-shadow-lg"
+          className="w-56 mb-6 rounded-2xl"
           onError={(e) => {
             e.currentTarget.style.display = 'none';
             const textLogo = document.getElementById('text-logo-fallback');

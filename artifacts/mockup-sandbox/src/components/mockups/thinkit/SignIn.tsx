@@ -36,16 +36,6 @@ export default function SignIn() {
           <span>Continue with Google</span>
         </button>
 
-        <div className="flex items-center w-full mb-6">
-          <div className="flex-1 h-px bg-gray-200"></div>
-          <span className="px-4 text-xs text-gray-400 font-medium uppercase tracking-wider">Or</span>
-          <div className="flex-1 h-px bg-gray-200"></div>
-        </div>
-
-        <button className="w-full bg-[#1B4D2E] text-white font-semibold py-4 rounded-xl shadow-md flex items-center justify-center space-x-2 active:bg-[#133A22] active:scale-95 transition-transform">
-          <span>Continue with Mobile Number</span>
-        </button>
-
         <div className="mt-auto pb-8 pt-8">
           <p className="text-xs text-gray-400 text-center leading-relaxed">
             By continuing, you agree to our<br/>
