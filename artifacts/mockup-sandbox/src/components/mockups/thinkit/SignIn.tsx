@@ -5,19 +5,21 @@ export default function SignIn() {
     <div className="w-[390px] h-[100dvh] bg-white flex flex-col mx-auto font-sans relative overflow-hidden">
       {/* Header section with brand color */}
       <div className="bg-[#1B4D2E] pt-16 pb-12 px-6 flex flex-col items-center rounded-b-[40px] shadow-sm z-10">
-        <img 
-          src="/__mockup/images/thinkit-logo.png" 
-          alt="Thinkit Logo" 
-          className="h-12 object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            const textLogo = document.getElementById('signin-text-logo');
-            if (textLogo) textLogo.style.display = 'flex';
-          }}
-        />
-        <div id="signin-text-logo" className="hidden flex-row items-center justify-center">
-          <span className="text-white text-4xl font-black tracking-tight">Think</span>
-          <span className="text-[#FFD700] text-4xl font-black tracking-tight">it</span>
+        <div className="bg-white rounded-2xl px-6 py-3 shadow-lg">
+          <img 
+            src="/__mockup/images/thinkit-logo.png" 
+            alt="Thinkit Logo" 
+            className="h-14 object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const textLogo = document.getElementById('signin-text-logo');
+              if (textLogo) textLogo.style.display = 'flex';
+            }}
+          />
+          <div id="signin-text-logo" className="hidden flex-row items-center justify-center">
+            <span className="text-[#1B4D2E] text-4xl font-black tracking-tight">Think</span>
+            <span className="text-[#FFD700] text-4xl font-black tracking-tight">it</span>
+          </div>
         </div>
       </div>
 
