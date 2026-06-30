@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Thinkit by Dwarika"
+version = "1.0.0"
+id = "artifacts/thinkit-app"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24545
+
+[services.development]
+run = "pnpm --filter @workspace/thinkit-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/thinkit-app", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/thinkit-app/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24545"
+BASE_PATH = "/"
