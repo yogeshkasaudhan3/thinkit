@@ -9,7 +9,7 @@ export default function SignIn() {
           <img 
             src="/__mockup/images/thinkit-logo.png" 
             alt="Thinkit Logo" 
-            className="h-14 object-contain"
+            className="h-24 object-contain"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
               const textLogo = document.getElementById('signin-text-logo');
