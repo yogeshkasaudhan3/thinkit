@@ -1,16 +1,14 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
 import { AdminLoginBody } from "@workspace/api-zod";
+import { db, adminUsersTable } from "@workspace/db";
 import { requireAdmin } from "../../middleware/requireAdmin";
 
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
-
-if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
-  throw new Error(
-    "ADMIN_USERNAME and ADMIN_PASSWORD_HASH environment variables must be set"
-  );
-}
+// Dummy hash used when username is not found — prevents timing-based
+// username enumeration by ensuring bcrypt.compare always runs.
+const DUMMY_HASH =
+  "$2b$12$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 const router: IRouter = Router();
 
@@ -23,25 +21,40 @@ router.post("/admin/login", async (req, res): Promise<void> => {
 
   const { username, password } = parsed.data;
 
-  const usernameMatch = username === ADMIN_USERNAME;
-  const passwordMatch = usernameMatch
-    ? await bcrypt.compare(password, ADMIN_PASSWORD_HASH!)
-    : false;
+  const [admin] = await db
+    .select()
+    .from(adminUsersTable)
+    .where(eq(adminUsersTable.username, username))
+    .limit(1);
 
-  if (!usernameMatch || !passwordMatch) {
+  // Always run bcrypt.compare — prevents timing-based username enumeration
+  const hashToCompare = admin?.passwordHash ?? DUMMY_HASH;
+  const passwordMatch = await bcrypt.compare(password, hashToCompare);
+
+  if (!admin || !passwordMatch) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
-  // Regenerate session for security
-  req.session.regenerate((err) => {
-    if (err) {
-      req.log.error({ err }, "Admin session regeneration failed");
+  // Regenerate session to prevent session fixation
+  req.session.regenerate((regenErr) => {
+    if (regenErr) {
+      req.log.error({ err: regenErr }, "Admin session regeneration failed");
       res.status(500).json({ error: "Login failed" });
       return;
     }
-    req.session.adminId = ADMIN_USERNAME!;
-    res.json({ username: ADMIN_USERNAME });
+
+    req.session.adminId = admin.username;
+
+    // Persist session to store before responding to avoid race conditions
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        req.log.error({ err: saveErr }, "Admin session save failed");
+        res.status(500).json({ error: "Login failed" });
+        return;
+      }
+      res.json({ username: admin.username });
+    });
   });
 });
 

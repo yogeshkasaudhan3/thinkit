@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { seedAdmin } from "./scripts/seed-admin";
 
 const rawPort = process.env["PORT"];
 
@@ -13,6 +14,14 @@ const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+// Ensure the default admin exists before accepting any requests
+try {
+  await seedAdmin();
+} catch (err) {
+  logger.error({ err }, "Admin seed failed — cannot start safely");
+  process.exit(1);
 }
 
 app.listen(port, (err) => {
