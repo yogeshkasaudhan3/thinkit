@@ -438,7 +438,7 @@ export default function ProductForm() {
                   />
                 </div>
                 <div className="shrink-0">
-                  <FormLabel className="mb-2 block">Preview</FormLabel>
+                  <label className="mb-2 block text-sm font-medium leading-none">Preview</label>
                   <div className="h-32 w-32 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden">
                     {imageUrlValue ? (
                       <img src={imageUrlValue} alt="Preview" className="h-full w-full object-cover" onError={(e) => {
