@@ -22,36 +22,33 @@ const loginSchema = z.object({
 });
 
 export default function Login() {
+  // All hooks must be called unconditionally at the top — before any early returns
   const [, setLocation] = useLocation();
   const [errorMsg, setErrorMsg] = useState('');
-  
-  // If already logged in, redirect
-  const { data: admin } = useGetAdminMe({ query: { queryKey: getGetAdminMeQueryKey(), retry: false } });
+
+  const { data: admin } = useGetAdminMe({
+    query: { queryKey: getGetAdminMeQueryKey(), retry: false },
+  });
+
+  const { mutate: login, isPending } = useAdminLogin();
+
+  const form = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { username: '', password: '' },
+  });
+
+  // Early return AFTER all hooks
   if (admin) {
     return <Redirect to="/dashboard" />;
   }
-
-  const { mutate: login, isPending } = useAdminLogin();
-  
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      username: '',
-      password: '',
-    },
-  });
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     setErrorMsg('');
     login(
       { data: values },
       {
-        onSuccess: () => {
-          setLocation('/dashboard');
-        },
-        onError: () => {
-          setErrorMsg('Invalid username or password');
-        },
+        onSuccess: () => setLocation('/dashboard'),
+        onError: () => setErrorMsg('Invalid username or password'),
       }
     );
   };
@@ -66,14 +63,14 @@ export default function Login() {
           <h1 className="text-2xl font-bold text-primary-foreground mb-1">Thinkit Admin</h1>
           <p className="text-primary-foreground/80 text-sm">Sign in to manage your store</p>
         </div>
-        
+
         <div className="p-6 md:p-8">
           {errorMsg && (
             <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-6 font-medium">
               {errorMsg}
             </div>
           )}
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -83,13 +80,13 @@ export default function Login() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="admin" {...field} className="h-11" />
+                      <Input placeholder="admin" autoComplete="username" {...field} className="h-11" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="password"
@@ -97,15 +94,25 @@ export default function Login() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} className="h-11" />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        autoComplete="current-password"
+                        {...field}
+                        className="h-11"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
-              <Button type="submit" className="w-full h-11 text-base font-semibold mt-6" disabled={isPending}>
-                {isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+
+              <Button
+                type="submit"
+                className="w-full h-11 text-base font-semibold mt-6"
+                disabled={isPending}
+              >
+                {isPending && <Loader2 className="h-5 w-5 animate-spin mr-2" />}
                 {isPending ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
