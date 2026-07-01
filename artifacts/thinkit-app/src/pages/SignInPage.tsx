@@ -147,28 +147,41 @@ export default function SignInPage() {
 
       {/* Hero */}
       <div className="bg-primary px-6 pt-14 pb-10 flex flex-col items-center">
-        <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center p-2 overflow-hidden mb-4">
-          <img src="/logo.png" alt="Thinkit" className="w-full h-full object-contain" />
+        {/* Logo — no white box; logo has its own green bg that blends with the hero */}
+        <div
+          className="rounded-2xl overflow-hidden mb-5"
+          style={{
+            width: 112,
+            height: 112,
+            boxShadow:
+              '0 12px 40px rgba(0,0,0,0.38), 0 4px 12px rgba(0,0,0,0.22), 0 0 0 1px rgba(255,255,255,0.06)',
+          }}
+        >
+          <img src="/logo.png" alt="Thinkit" className="w-full h-full object-cover" />
         </div>
         <h1 className="text-white text-2xl font-bold tracking-tight">Thinkit by Dwarika</h1>
-        <p className="text-secondary text-sm font-medium mt-1">Get It In Minutes</p>
+        <p className="text-secondary text-sm font-medium mt-1 tracking-wide">Get It In Minutes</p>
       </div>
 
       {/* Tab Bar */}
       <div className="bg-primary px-6 pb-0">
-        <div className="bg-white/10 rounded-t-2xl flex p-1">
+        <div className="bg-white/10 rounded-t-2xl flex p-1 gap-1">
           <button
             onClick={() => { setTab('login'); setLoginError(null); }}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              tab === 'login' ? 'bg-white text-primary shadow' : 'text-white/70'
+            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+              tab === 'login'
+                ? 'bg-white text-primary shadow-md'
+                : 'text-white bg-white/[0.08] hover:bg-white/[0.14]'
             }`}
           >
             Existing Customer
           </button>
           <button
             onClick={() => setTab('signup')}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              tab === 'signup' ? 'bg-white text-primary shadow' : 'text-white/70'
+            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+              tab === 'signup'
+                ? 'bg-white text-primary shadow-md'
+                : 'text-white bg-white/[0.08] hover:bg-white/[0.14]'
             }`}
           >
             New Customer
