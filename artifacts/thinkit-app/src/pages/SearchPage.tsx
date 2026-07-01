@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Search, X, Clock, TrendingUp, Sparkles } from 'lucide-react';
 import { ProductCard } from './HomePage';
 import BottomNav from '../components/BottomNav';
-import { searchProducts, FALLBACK_PRODUCTS, type SearchResultKind } from '../lib/search';
+import { createSearchEngine, getFallbackProducts, type SearchResultKind } from '../lib/search';
 import type { Product } from '../lib/mockData';
+import { useProducts } from '../lib/useProducts';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -84,7 +85,6 @@ function ResultsView({ query, products, kind, fallbackProducts }: {
   kind: SearchResultKind;
   fallbackProducts: Product[];
 }) {
-  // ── Exact matches ─────────────────────────────────────────────────────────
   if (kind === 'exact') {
     return (
       <div className="p-4">
@@ -96,14 +96,12 @@ function ResultsView({ query, products, kind, fallbackProducts }: {
     );
   }
 
-  // ── Fuzzy / fallback ──────────────────────────────────────────────────────
   const showFuzzy   = kind === 'fuzzy';
   const suggestions = showFuzzy ? products : [];
-  const fallback    = kind === 'fallback' ? fallbackProducts : FALLBACK_PRODUCTS;
+  const fallback    = kind === 'fallback' ? fallbackProducts : fallbackProducts;
 
   return (
     <div className="p-4 space-y-6">
-      {/* "No exact match" banner */}
       <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 flex items-start gap-3">
         <Sparkles size={18} className="text-amber-500 shrink-0 mt-0.5" />
         <p className="text-sm text-amber-800 leading-snug">
@@ -112,7 +110,6 @@ function ResultsView({ query, products, kind, fallbackProducts }: {
         </p>
       </div>
 
-      {/* Fuzzy suggestions (if any) */}
       {showFuzzy && suggestions.length > 0 && (
         <section>
           <h3 className="text-sm font-bold text-gray-800 mb-3">Similar Products</h3>
@@ -120,13 +117,13 @@ function ResultsView({ query, products, kind, fallbackProducts }: {
         </section>
       )}
 
-      {/* Best sellers */}
-      <section>
-        <h3 className="text-sm font-bold text-gray-800 mb-3">Best Sellers</h3>
-        <ProductGrid products={fallback.slice(0, 6)} />
-      </section>
+      {fallback.length > 0 && (
+        <section>
+          <h3 className="text-sm font-bold text-gray-800 mb-3">Best Sellers</h3>
+          <ProductGrid products={fallback.slice(0, 6)} />
+        </section>
+      )}
 
-      {/* Dwarika specials */}
       {fallback.length > 6 && (
         <section>
           <h3 className="text-sm font-bold text-gray-800 mb-3">Dwarika Specials</h3>
@@ -147,7 +144,6 @@ function DiscoveryView({ recent, onSelect, onRemoveRecent, onClearAll }: {
 }) {
   return (
     <div className="p-4 space-y-6">
-      {/* Hint */}
       <div className="flex flex-col items-center justify-center py-6 text-center">
         <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-3">
           <Search size={24} className="text-primary" />
@@ -155,7 +151,6 @@ function DiscoveryView({ recent, onSelect, onRemoveRecent, onClearAll }: {
         <p className="text-sm text-gray-500 font-medium">Start typing to search products</p>
       </div>
 
-      {/* Recent searches */}
       {recent.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -183,7 +178,6 @@ function DiscoveryView({ recent, onSelect, onRemoveRecent, onClearAll }: {
         </section>
       )}
 
-      {/* Popular searches */}
       <section>
         <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1.5 mb-3">
           <TrendingUp size={14} className="text-primary" /> Popular Searches
@@ -211,6 +205,12 @@ export default function SearchPage() {
   const [recent, setRecent] = useState<string[]>(getRecent);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { allProducts } = useProducts();
+
+  // Build the Fuse search engine once per product list (not per keystroke)
+  const searchEngine = useMemo(() => createSearchEngine(allProducts), [allProducts]);
+  const fallbackProducts = useMemo(() => getFallbackProducts(allProducts), [allProducts]);
+
   // Auto-focus on mount
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 80);
@@ -218,7 +218,7 @@ export default function SearchPage() {
   }, []);
 
   const isSearching = query.trim().length > 0;
-  const searchResult = isSearching ? searchProducts(query) : null;
+  const searchResult = isSearching ? searchEngine(query) : null;
 
   const commitSearch = useCallback((q: string) => {
     const t = q.trim();
@@ -305,7 +305,9 @@ export default function SearchPage() {
                 query={query}
                 products={searchResult!.products}
                 kind={searchResult!.kind}
-                fallbackProducts={searchResult!.fallbackProducts}
+                fallbackProducts={searchResult!.fallbackProducts.length > 0
+                  ? searchResult!.fallbackProducts
+                  : fallbackProducts}
               />
             </motion.div>
           ) : (

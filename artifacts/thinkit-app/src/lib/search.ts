@@ -7,20 +7,23 @@
  *   3. Split results into "good" (score ≤ EXACT_THRESHOLD) and "fuzzy" (score ≤ FUZZY_THRESHOLD)
  *   4. If zero results → return best-seller fallback with isFallback flag
  *
- * The Fuse index is built once at module-load time so repeated searches are fast.
+ * Usage:
+ *   // Build once when products are available, then call freely:
+ *   const engine = createSearchEngine(products);
+ *   const result = engine('atta');
+ *
+ *   // Or one-shot (rebuilds index every call — fine for small catalogs):
+ *   const result = searchProducts('atta', products);
  */
 
 import Fuse from 'fuse.js';
-import { PRODUCTS, CATEGORIES, type Product } from './mockData';
+import { CATEGORIES, type Product } from './mockData';
 
 // ─── Thresholds ────────────────────────────────────────────────────────────────
-// Fuse score: 0 = perfect match, 1 = no match at all
-const EXACT_THRESHOLD = 0.35;   // tight – shown as "N results for …"
-const FUZZY_THRESHOLD = 0.55;   // loose – shown as "similar products" fallback
+const EXACT_THRESHOLD = 0.35;
+const FUZZY_THRESHOLD = 0.55;
 
-// ─── Alias / normalization map ─────────────────────────────────────────────────
-// Maps common Indian misspellings / alternate spellings → canonical search term.
-// Checked BEFORE fuzzy so even very wrong spellings land on the right products.
+// ─── Alias / normalisation map ─────────────────────────────────────────────────
 const ALIASES: Record<string, string> = {
   // Atta / grains
   aata: 'atta', aatta: 'atta', wheat: 'atta', gehu: 'atta',
@@ -77,55 +80,59 @@ interface SearchDoc {
   keywords: string;
 }
 
-// Per-product hand-tuned keyword hints for common alternate names.
-// RULE: every alias in ALIASES must resolve to a term that appears here
-// or in name/brand/category/subcats — otherwise users get only the fallback.
-const PRODUCT_KEYWORDS: Record<string, string> = {
-  p1:  'gehu atta wheat flour aashirvaad',
-  p2:  'chawal basmati rice fortune',
-  p3:  'makhan makkhan butter amul dairy',
-  p4:  'bread double roti whole wheat',
-  p5:  'tel sunflower oil refined',
-  p6:  'desi ghee pure amul',
-  p7:  'glucose parle g biscuit biskut',
-  p8:  'bhujia aloo namkeen haldirams snack',
-  p9:  'garam masala mdh spice mirch',
-  p10: 'haldi turmeric powder tata',
-  // sampoo/shampoo → hair care; chai/tea; cold drink → beverage
-  p11: 'chai chaye tea tata premium beverage drink',
-  p12: 'cofee coffee nescafe classic cold drink coldrink beverage',
-  p13: 'washing powder detergent surf excel kapda',
-  p14: 'bartan dishwash vim bar sabun',
-  // sampoo/shampoo → closest personal-care product; sabun/soap
-  p15: 'soap sabun dove bathing bar shower shampoo hair wash body',
-  p16: 'toothpaste colgate teeth paste dant oral',
-  p17: 'nappy diaper pampers baby',
-  p18: 'agarbati incense sandal mangaldeep pooja',
-  p19: 'badam almond dry fruit happilo',
-  p20: 'cornflakes corn flakes breakfast kelloggs',
-  p21: 'magi noodles two minute masala',
-  p22: 'doodh milk amul taaza toned',
-};
+/**
+ * Per-product keyword hints for common alternate names.
+ * Keyed by a stable string that the admin is likely to use as part of the name.
+ * Falls back to empty string for products with no entry.
+ */
+function deriveKeywords(p: Product): string {
+  const nameLower = p.name.toLowerCase();
+  const brandLower = p.brand.toLowerCase();
 
-function buildDocs(): SearchDoc[] {
-  return PRODUCTS.map(p => {
-    const cat = CATEGORIES.find(c => c.id === p.categoryId);
+  const hints: string[] = [];
+
+  if (nameLower.includes('atta') || nameLower.includes('flour'))  hints.push('gehu wheat flour');
+  if (nameLower.includes('rice') || nameLower.includes('basmati')) hints.push('chawal chaawal basmati');
+  if (nameLower.includes('butter'))  hints.push('makhan makkhan dairy');
+  if (nameLower.includes('bread'))   hints.push('double roti whole wheat');
+  if (nameLower.includes('ghee'))    hints.push('desi ghee pure');
+  if (nameLower.includes('oil'))     hints.push('tel refined sunflower sarson');
+  if (nameLower.includes('milk'))    hints.push('doodh dudh dairy');
+  if (nameLower.includes('tea'))     hints.push('chai chaye chay beverage drink');
+  if (nameLower.includes('coffee'))  hints.push('cofee coffe beverage coldrink cold drink');
+  if (nameLower.includes('noodle') || brandLower.includes('maggi')) hints.push('magi magee two minute');
+  if (nameLower.includes('biscuit') || nameLower.includes('cracker')) hints.push('biskut biskit glucose');
+  if (nameLower.includes('masala') || nameLower.includes('spice'))  hints.push('haldi mirch garam masala');
+  if (nameLower.includes('turmeric')) hints.push('haldi powder');
+  if (nameLower.includes('detergent') || nameLower.includes('washing')) hints.push('washin kapda detarjent');
+  if (nameLower.includes('dishwash') || nameLower.includes('dish'))     hints.push('bartan sabun vim');
+  if (nameLower.includes('soap') || nameLower.includes('body wash'))    hints.push('sabun saboon shower shampoo hair');
+  if (nameLower.includes('toothpaste') || nameLower.includes('tooth'))  hints.push('dant oral toothpast paste');
+  if (nameLower.includes('diaper') || nameLower.includes('nappy'))      hints.push('nappy baby');
+  if (nameLower.includes('agarbatti') || nameLower.includes('incense')) hints.push('agarbati agarbathi pooja');
+  if (nameLower.includes('almond'))  hints.push('badam dry fruit');
+  if (nameLower.includes('cashew'))  hints.push('kaju dry fruit');
+  if (nameLower.includes('raisin'))  hints.push('kishmish dry fruit');
+  if (nameLower.includes('cornflake') || nameLower.includes('corn flake')) hints.push('breakfast cereal');
+
+  return hints.join(' ');
+}
+
+function buildDocs(products: Product[]): SearchDoc[] {
+  return products.map((p) => {
+    const cat = CATEGORIES.find((c) => c.id === p.categoryId);
     return {
       product: p,
       name: p.name,
       brand: p.brand,
       category: cat?.name ?? '',
       subcats: (cat?.subcategories ?? []).join(' '),
-      keywords: PRODUCT_KEYWORDS[p.id] ?? '',
+      keywords: deriveKeywords(p),
     };
   });
 }
 
-// ─── Fuse index (built once) ──────────────────────────────────────────────────
-
-const DOCS = buildDocs();
-
-const fuse = new Fuse(DOCS, {
+const FUSE_OPTIONS = {
   keys: [
     { name: 'name',     weight: 0.45 },
     { name: 'brand',    weight: 0.30 },
@@ -133,47 +140,70 @@ const fuse = new Fuse(DOCS, {
     { name: 'category', weight: 0.07 },
     { name: 'subcats',  weight: 0.03 },
   ],
-  threshold: FUZZY_THRESHOLD,   // pre-filter: Fuse won't return anything worse
+  threshold: FUZZY_THRESHOLD,
   includeScore: true,
   minMatchCharLength: 2,
-  ignoreLocation: true,         // don't penalize matches at end of string
+  ignoreLocation: true,
   findAllMatches: true,
-});
+};
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ─── Public types ─────────────────────────────────────────────────────────────
 
-export type SearchResultKind =
-  | 'exact'     // good score matches
-  | 'fuzzy'     // some fuzzy matches but none great
-  | 'fallback'; // nothing matched at all
+export type SearchResultKind = 'exact' | 'fuzzy' | 'fallback';
 
 export interface SearchResult {
   products: Product[];
   kind: SearchResultKind;
-  fallbackProducts: Product[]; // best-sellers + dwarika specials shown alongside "no exact match"
+  fallbackProducts: Product[];
 }
 
-/** Best sellers = first 6 products; Dwarika Specials = next 6 */
-const BEST_SELLERS = PRODUCTS.slice(0, 6);
-const DWARIKA_SPECIALS = PRODUCTS.slice(6, 12);
-export const FALLBACK_PRODUCTS = [...BEST_SELLERS, ...DWARIKA_SPECIALS];
+export type SearchEngine = (raw: string) => SearchResult;
 
-export function searchProducts(raw: string): SearchResult {
-  const q = normalizeQuery(raw);
-  if (!q) return { products: [], kind: 'exact', fallbackProducts: [] };
+// ─── Engine factory ───────────────────────────────────────────────────────────
 
-  const fuseResults = fuse.search(q);
+/**
+ * Build a search engine from a product list.
+ * Call this once (e.g. useMemo) and reuse for repeated searches.
+ */
+export function createSearchEngine(products: Product[]): SearchEngine {
+  const docs = buildDocs(products);
+  const fuse = new Fuse(docs, FUSE_OPTIONS);
 
-  const exact   = fuseResults.filter(r => (r.score ?? 1) <= EXACT_THRESHOLD).map(r => r.item.product);
-  const allFuzz = fuseResults.map(r => r.item.product);
+  // Best sellers shown as fallback when nothing matches
+  const bestSellers = products.filter((p) => p.isBestSeller).slice(0, 6);
+  const dwarikaSpecials = products.filter((p) => p.isDwarikaSpecial).slice(0, 6);
+  // If no flags set (e.g. no products tagged yet), fall back to first 12
+  const fallback =
+    bestSellers.length + dwarikaSpecials.length > 0
+      ? [...bestSellers, ...dwarikaSpecials]
+      : products.slice(0, 12);
 
-  if (exact.length > 0) {
-    return { products: exact, kind: 'exact', fallbackProducts: [] };
-  }
+  return function search(raw: string): SearchResult {
+    const q = normalizeQuery(raw);
+    if (!q) return { products: [], kind: 'exact', fallbackProducts: [] };
 
-  if (allFuzz.length > 0) {
-    return { products: allFuzz, kind: 'fuzzy', fallbackProducts: FALLBACK_PRODUCTS };
-  }
+    const fuseResults = fuse.search(q);
 
-  return { products: [], kind: 'fallback', fallbackProducts: FALLBACK_PRODUCTS };
+    const exact   = fuseResults.filter((r) => (r.score ?? 1) <= EXACT_THRESHOLD).map((r) => r.item.product);
+    const allFuzz = fuseResults.map((r) => r.item.product);
+
+    if (exact.length > 0)   return { products: exact,   kind: 'exact',    fallbackProducts: [] };
+    if (allFuzz.length > 0) return { products: allFuzz, kind: 'fuzzy',    fallbackProducts: fallback };
+    return                         { products: [],       kind: 'fallback', fallbackProducts: fallback };
+  };
+}
+
+/**
+ * One-shot search helper. Builds the engine every call — fine for infrequent use.
+ * For repeated searches on the same product list, prefer createSearchEngine().
+ */
+export function searchProducts(raw: string, products: Product[]): SearchResult {
+  return createSearchEngine(products)(raw);
+}
+
+/** Pre-built fallback list for the SearchPage discovery view. */
+export function getFallbackProducts(products: Product[]): Product[] {
+  const bs = products.filter((p) => p.isBestSeller).slice(0, 6);
+  const ds = products.filter((p) => p.isDwarikaSpecial).slice(0, 6);
+  return bs.length + ds.length > 0 ? [...bs, ...ds] : products.slice(0, 12);
 }

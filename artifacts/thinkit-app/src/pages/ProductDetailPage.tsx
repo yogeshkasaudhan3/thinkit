@@ -1,48 +1,71 @@
 import { useRoute } from 'wouter';
 import { motion } from 'framer-motion';
-import { Star, Clock, ShieldCheck, ChevronRight, Plus, Minus } from 'lucide-react';
+import { Star, Clock, ShieldCheck, Plus, Minus } from 'lucide-react';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { ProductCard } from './HomePage';
-import { PRODUCTS } from '../lib/mockData';
+import { CATEGORY_COLORS } from '../lib/mockData';
+import { useProducts } from '../lib/useProducts';
 import { useApp } from '../context/AppContext';
 
 export default function ProductDetailPage() {
-  const [match, params] = useRoute('/product/:id');
+  const [, params] = useRoute('/product/:id');
   const productId = params?.id;
-  
+
+  const { allProducts, loading } = useProducts();
   const { cart, addToCart, updateQty } = useApp();
-  
-  const product = PRODUCTS.find(p => p.id === productId);
+
+  const product = allProducts.find(p => p.id === productId);
+
+  if (loading && !product) {
+    return (
+      <div className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-white flex items-center justify-center">
+        <p className="text-sm text-gray-400">Loading…</p>
+      </div>
+    );
+  }
+
   if (!product) return null;
 
-  const similarProducts = PRODUCTS.filter(p => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 4);
+  const effectiveColor = product.color || CATEGORY_COLORS[product.categoryId] || '#e8e8e8';
+
+  const similarProducts = allProducts
+    .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
+    .slice(0, 4);
 
   const cartItem = cart.find(c => c.product.id === product.id);
   const qty = cartItem ? cartItem.qty : 0;
 
   return (
-    <motion.div 
+    <motion.div
       className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-white pb-24"
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0 }}
     >
       <AppHeader showBack rightAction={<div className="p-2"/>} />
-      
+
       <div className="flex flex-col h-full overflow-y-auto">
         {/* Product Image Area */}
-        <div 
+        <div
           className="w-full h-72 flex items-center justify-center relative"
-          style={{ backgroundColor: `${product.color}20` }}
+          style={{ backgroundColor: `${effectiveColor}20` }}
         >
-          <div 
-            className="w-40 h-40 rounded-full shadow-inner flex items-center justify-center p-4 text-center border-[8px] border-white/50"
-            style={{ backgroundColor: product.color }}
-          >
-            <span className="font-bold text-gray-800 text-lg leading-tight">{product.brand}</span>
-          </div>
-          
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="w-40 h-40 object-contain"
+            />
+          ) : (
+            <div
+              className="w-40 h-40 rounded-full shadow-inner flex items-center justify-center p-4 text-center border-[8px] border-white/50"
+              style={{ backgroundColor: effectiveColor }}
+            >
+              <span className="font-bold text-gray-800 text-lg leading-tight">{product.brand}</span>
+            </div>
+          )}
+
           <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-gray-700 flex items-center gap-1">
             <Clock size={12} /> 10 MINS
           </div>
@@ -53,7 +76,7 @@ export default function ProductDetailPage() {
           <p className="text-sm font-semibold text-gray-500 mb-1">{product.brand}</p>
           <h1 className="text-xl font-bold text-gray-900 leading-tight mb-2">{product.name}</h1>
           <p className="text-sm text-gray-500 mb-4">{product.weight}</p>
-          
+
           <div className="flex items-center gap-2 mb-6">
             <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-bold">
               4.5 <Star size={10} className="fill-current" />
@@ -125,7 +148,7 @@ export default function ProductDetailPage() {
             Out of Stock
           </button>
         ) : qty === 0 ? (
-          <button 
+          <button
             onClick={() => addToCart(product)}
             className="w-full h-12 bg-primary text-white font-bold rounded-xl active:scale-[0.98] transition-transform"
           >
@@ -133,14 +156,14 @@ export default function ProductDetailPage() {
           </button>
         ) : (
           <div className="w-full h-12 bg-primary text-white rounded-xl flex items-center justify-between px-2">
-            <button 
+            <button
               onClick={() => updateQty(product.id, qty - 1)}
               className="w-12 h-10 flex items-center justify-center active:bg-black/20 rounded-lg"
             >
               <Minus size={20} />
             </button>
             <span className="font-bold text-lg">{qty} in cart</span>
-            <button 
+            <button
               onClick={() => updateQty(product.id, qty + 1)}
               className="w-12 h-10 flex items-center justify-center active:bg-black/20 rounded-lg"
             >
@@ -149,7 +172,6 @@ export default function ProductDetailPage() {
           </div>
         )}
       </div>
-
     </motion.div>
   );
 }

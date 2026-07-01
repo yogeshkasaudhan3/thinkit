@@ -3,3 +3,4 @@
 - [ProtectedRoute pattern](protected-route.md) — ProtectedRoute + SetupRoute both guard on authStatus==='loading' before redirecting; /setup only accessible to authenticated users without profileComplete
 - [Admin panel architecture](admin-panel-arch.md) — admin-panel at /admin-panel/, extends api-server with /api/admin/* routes, hardcoded creds, SSE for new order alarm
 - [Orval hook query options](orval-query-options.md) — generated hooks require full UseQueryOptions (including queryKey); always pass getGet*QueryKey() helper when passing query options
+- [useProducts cache pattern](useproducts-cache.md) — module-level subscriber cache; TTL 5 min; invalidateProductsCache() for admin-triggered refresh; Fuse engine via useMemo per component
