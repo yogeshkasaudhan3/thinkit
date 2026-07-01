@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product } from '../lib/mockData';
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface CartItem {
   id: string;
@@ -7,6 +9,24 @@ export interface CartItem {
   qty: number;
 }
 
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  picture?: string | null;
+  phone?: string | null;
+  profileComplete: boolean;
+}
+
+export interface UserAddress {
+  id?: number;
+  houseNumber: string;
+  area: string;
+  landmark: string;
+  pincode: string;
+}
+
+// Backward-compat shape used by existing pages
 export interface UserProfile {
   name: string;
   phone: string;
@@ -17,6 +37,20 @@ export interface UserProfile {
 }
 
 interface AppContextType {
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  authStatus: 'loading' | 'authenticated' | 'unauthenticated';
+  authUser: AuthUser | null;
+  userAddress: UserAddress | null;
+  isLoggedIn: boolean;
+  refreshAuth: () => Promise<void>;
+  logout: () => Promise<void>;
+
+  // Backward-compat computed user for existing pages
+  user: UserProfile | null;
+  /** @deprecated – use refreshAuth/logout instead */
+  setUser: (u: UserProfile | null) => void;
+
+  // ── Cart ──────────────────────────────────────────────────────────────────
   cart: CartItem[];
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
@@ -24,9 +58,8 @@ interface AppContextType {
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
-  user: UserProfile | null;
-  setUser: (user: UserProfile | null) => void;
-  isLoggedIn: boolean;
+
+  // ── Order state ───────────────────────────────────────────────────────────
   paymentMethod: 'cod' | 'upi';
   setPaymentMethod: (method: 'cod' | 'upi') => void;
   orderNote: string;
@@ -35,31 +68,73 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('thinkit_cart');
-    return saved ? JSON.parse(saved) : [];
-  });
+// ─── Provider ──────────────────────────────────────────────────────────────────
 
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('thinkit_user');
-    return saved ? JSON.parse(saved) : null;
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  // Auth state
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [userAddress, setUserAddress] = useState<UserAddress | null>(null);
+
+  // Cart (localStorage-persisted)
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('thinkit_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'upi'>('cod');
   const [orderNote, setOrderNote] = useState('');
 
+  // Persist cart
   useEffect(() => {
     localStorage.setItem('thinkit_cart', JSON.stringify(cart));
   }, [cart]);
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('thinkit_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('thinkit_user');
+  // ── Auth helpers ────────────────────────────────────────────────────────────
+
+  const refreshAuth = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAuthUser(data.user);
+        setUserAddress(data.address ?? null);
+        setAuthStatus('authenticated');
+      } else {
+        setAuthUser(null);
+        setUserAddress(null);
+        setAuthStatus('unauthenticated');
+      }
+    } catch {
+      setAuthUser(null);
+      setUserAddress(null);
+      setAuthStatus('unauthenticated');
     }
-  }, [user]);
+  }, []);
+
+  // Check session on mount
+  useEffect(() => {
+    refreshAuth();
+  }, [refreshAuth]);
+
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch {
+      // ignore network errors — clear local state regardless
+    }
+    setAuthUser(null);
+    setUserAddress(null);
+    setAuthStatus('unauthenticated');
+    setCart([]);
+    localStorage.removeItem('thinkit_cart');
+  }, []);
+
+  // ── Cart helpers ────────────────────────────────────────────────────────────
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -78,26 +153,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateQty = (productId: string, qty: number) => {
-    if (qty <= 0) {
-      removeFromCart(productId);
-      return;
-    }
+    if (qty <= 0) { removeFromCart(productId); return; }
     setCart(prev =>
-      prev.map(item =>
-        item.product.id === productId ? { ...item, qty } : item
-      )
+      prev.map(item => item.product.id === productId ? { ...item, qty } : item)
     );
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    setCart([]);
+    localStorage.removeItem('thinkit_cart');
+  };
 
-  const cartTotal = cart.reduce((total, item) => total + item.product.price * item.qty, 0);
-  const cartCount = cart.reduce((count, item) => count + item.qty, 0);
-  const isLoggedIn = !!user;
+  const cartTotal = cart.reduce((t, item) => t + item.product.price * item.qty, 0);
+  const cartCount = cart.reduce((c, item) => c + item.qty, 0);
+  const isLoggedIn = authStatus === 'authenticated' && authUser !== null;
+
+  // ── Backward-compat user object ─────────────────────────────────────────────
+
+  const user: UserProfile | null = authUser
+    ? {
+        name: authUser.name,
+        phone: authUser.phone ?? '',
+        flat: userAddress?.houseNumber ?? '',
+        area: userAddress?.area ?? '',
+        landmark: userAddress?.landmark ?? '',
+        pincode: userAddress?.pincode ?? '',
+      }
+    : null;
+
+  // No-op shim — existing pages that call setUser(null) should migrate to logout()
+  const setUser = (_u: UserProfile | null) => {
+    if (_u === null) logout();
+  };
 
   return (
     <AppContext.Provider
       value={{
+        authStatus,
+        authUser,
+        userAddress,
+        isLoggedIn,
+        refreshAuth,
+        logout,
+        user,
+        setUser,
         cart,
         addToCart,
         removeFromCart,
@@ -105,9 +204,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         cartTotal,
         cartCount,
-        user,
-        setUser,
-        isLoggedIn,
         paymentMethod,
         setPaymentMethod,
         orderNote,
@@ -121,8 +217,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 export function useApp() {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
+  if (!context) throw new Error('useApp must be used within an AppProvider');
   return context;
 }

@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
   const [, setLocation] = useLocation();
-  const { user, setUser, clearCart } = useApp();
+  const { user, logout } = useApp();
   const { toast } = useToast();
 
   if (!user) {
@@ -16,9 +16,8 @@ export default function ProfilePage() {
     return null;
   }
 
-  const handleLogout = () => {
-    setUser(null);
-    clearCart();
+  const handleLogout = async () => {
+    await logout();
     setLocation('/signin');
   };
 

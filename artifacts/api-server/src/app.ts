@@ -1,8 +1,17 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import passport from "passport";
+import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+// Register passport strategies (side-effect import)
+import "./lib/passport";
+
+const PgStore = connectPgSimple(session);
 
 const app: Express = express();
 
@@ -25,9 +34,47 @@ app.use(
     },
   }),
 );
-app.use(cors());
+
+// Trust Replit's reverse proxy so secure cookies work in production
+app.set("trust proxy", 1);
+
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET environment variable is required");
+}
+
+// PostgreSQL-backed sessions
+app.use(
+  session({
+    store: new PgStore({
+      pool,
+      tableName: "session",
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      // secure only in production (HTTPS); in dev Replit uses HTTP locally
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    },
+  }),
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use("/api", router);
 
