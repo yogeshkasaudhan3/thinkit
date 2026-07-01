@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { MapPin, Phone, Lock, Edit3, CheckCircle2 } from 'lucide-react';
 import AppHeader from '../components/AppHeader';
 import { useApp } from '../context/AppContext';
+import { useStoreSettings } from '../lib/useStoreSettings';
 
 export default function CheckoutPage() {
   const [, setLocation] = useLocation();
@@ -20,11 +21,12 @@ export default function CheckoutPage() {
     return null;
   }
 
-  // ── Thinkit v1.0 Pricing Model ───────────────────────────────────────────────
-  const HANDLING_FEE = 5;
-  const smallCartFee  = cartTotal > 0 && cartTotal < 100 ? 20 : 0;
-  const deliveryFee   = cartTotal >= 150 ? 0 : 20;
-  const grandTotal    = cartTotal + smallCartFee + deliveryFee + HANDLING_FEE;
+  // ── Pricing from live store settings ────────────────────────────────────────
+  const { settings } = useStoreSettings();
+  const handlingFee  = settings.handlingFee;
+  const smallCartFee = cartTotal > 0 && cartTotal < settings.smallCartFeeThreshold ? settings.smallCartFee : 0;
+  const deliveryFee  = cartTotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
+  const grandTotal   = cartTotal + smallCartFee + deliveryFee + handlingFee;
 
   const handlePlaceOrder = async () => {
     setIsPlacing(true);
@@ -47,7 +49,7 @@ export default function CheckoutPage() {
           subtotal: cartTotal,
           smallCartFee,
           deliveryFee,
-          handlingFee: HANDLING_FEE,
+          handlingFee,
           grandTotal,
           paymentMethod,
           orderNote: orderNote || undefined,
@@ -138,7 +140,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between text-gray-600">
                 <span className="flex items-center gap-1.5">
                   Small Cart Fee
-                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">below ₹100</span>
+                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">below ₹{settings.smallCartFeeThreshold}</span>
                 </span>
                 <span>₹{smallCartFee}</span>
               </div>
@@ -151,7 +153,7 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Handling &amp; Packaging Fee</span>
-              <span>₹{HANDLING_FEE}</span>
+              <span>₹{handlingFee}</span>
             </div>
             <div className="flex justify-between font-bold text-base text-gray-900 border-t border-dashed border-gray-200 pt-3 mt-1">
               <span>Grand Total</span>

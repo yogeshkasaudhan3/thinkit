@@ -3,8 +3,9 @@ import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Ticket, Phone, MessageCircle, Star, FileText,
-  LogOut, ChevronRight, MapPin, X, CheckCircle2, Loader2,
+  LogOut, ChevronRight, MapPin, X, CheckCircle2, Loader2, Info,
 } from 'lucide-react';
+import { useStoreSettings, toPhoneDigits } from '../lib/useStoreSettings';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { useApp } from '../context/AppContext';
@@ -194,6 +195,8 @@ export default function ProfilePage() {
     return null;
   }
 
+  const { settings } = useStoreSettings();
+
   const handleLogout = async () => {
     await logout();
     setLocation('/signin');
@@ -204,8 +207,9 @@ export default function ProfilePage() {
   const menuItems = [
     { icon: Package, label: 'My Orders', onClick: () => setLocation('/orders'), color: 'text-blue-500' },
     { icon: Ticket, label: 'My Coupons', onClick: () => showToast('No coupons yet'), color: 'text-orange-500' },
-    { icon: Phone, label: 'Call Dwarika', onClick: () => (window.location.href = 'tel:1800123456'), color: 'text-green-600' },
-    { icon: MessageCircle, label: 'WhatsApp Support', onClick: () => window.open('https://wa.me/919876543210', '_blank'), color: 'text-[#25D366]' },
+    { icon: Phone, label: 'Call Dwarika', onClick: () => (window.location.href = `tel:${toPhoneDigits(settings.contactNumber)}`), color: 'text-green-600' },
+    { icon: MessageCircle, label: 'WhatsApp Support', onClick: () => window.open(`https://wa.me/${toPhoneDigits(settings.whatsappNumber)}`, '_blank'), color: 'text-[#25D366]' },
+    { icon: Info, label: 'Contact Us', onClick: () => setLocation('/contact'), color: 'text-primary' },
     { icon: Star, label: 'Rate Us', onClick: () => showToast('Thank you for rating!'), color: 'text-yellow-500' },
     { icon: FileText, label: 'Privacy Policy', onClick: () => showToast('Coming soon'), color: 'text-gray-500' },
   ];

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Phone, Lock, User, Home, MapPin, Hash, UserPlus, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Phone, Lock, User, Home, MapPin, Hash, UserPlus, AlertCircle, MessageCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '@/hooks/use-toast';
+import { useStoreSettings, toPhoneDigits } from '../lib/useStoreSettings';
 
 type Tab = 'login' | 'signup';
 
@@ -48,6 +49,8 @@ export default function SignInPage() {
 
   const [login, setLogin] = useState<LoginForm>(INITIAL_LOGIN);
   const [signup, setSignup] = useState<SignupForm>(INITIAL_SIGNUP);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const { settings } = useStoreSettings();
 
   const toastError = (msg: string) => toast({ title: msg, duration: 3000 });
 
@@ -278,12 +281,49 @@ export default function SignInPage() {
                 )}
               </AnimatePresence>
 
-              {/* Forgot password */}
+              {/* Forgot password — expandable support section */}
+              <AnimatePresence>
+                {forgotOpen && (
+                  <motion.div
+                    key="forgot-panel"
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="bg-blue-50 border border-blue-200 rounded-2xl p-4 space-y-3"
+                  >
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">Need help resetting your password?</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Contact {settings.storeName} Support:</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => (window.location.href = `tel:${toPhoneDigits(settings.contactNumber)}`)}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-xl text-sm font-bold active:opacity-80 transition-opacity"
+                      >
+                        <Phone size={15} /> Call Now
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.open(
+                            `https://wa.me/${toPhoneDigits(settings.whatsappNumber)}?text=Hi+${encodeURIComponent(settings.storeName)}+Support,+I+forgot+my+password`,
+                            '_blank'
+                          )
+                        }
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#25D366] text-white rounded-xl text-sm font-bold active:opacity-80 transition-opacity"
+                      >
+                        <MessageCircle size={15} /> WhatsApp
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <p className="text-center text-xs text-gray-400">
                 Forgot password?{' '}
                 <button
                   type="button"
-                  onClick={() => window.open('https://wa.me/919876543210?text=Hi+Dwarika+Support,+I+forgot+my+password', '_blank')}
+                  onClick={() => setForgotOpen((o) => !o)}
                   className="text-primary font-semibold underline underline-offset-2"
                 >
                   Contact Dwarika Support

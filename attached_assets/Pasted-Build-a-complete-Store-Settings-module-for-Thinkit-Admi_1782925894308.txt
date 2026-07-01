@@ -1,0 +1,105 @@
+Build a complete Store Settings module for Thinkit Admin Panel.
+
+Purpose:
+The admin should be able to change all store information from the Admin Panel without modifying code.
+
+==================================================
+STORE INFORMATION
+==================================================
+
+Add a new menu item:
+
+Settings
+
+Inside Settings, create the following fields:
+
+Store Name:
+Dwarika Grocery Mart
+
+Store Contact Number:
++91 XXXXXXXXXX
+
+WhatsApp Support Number:
++91 XXXXXXXXXX
+
+Support Email:
+support@thinkit.com
+
+Store Address:
+Full store address
+
+Business Hours:
+Example:
+8:00 AM - 10:00 PM
+
+==================================================
+DELIVERY SETTINGS
+==================================================
+
+Admin should be able to change:
+
+Delivery Radius:
+3 KM
+
+Free Delivery Threshold:
+₹150
+
+Small Cart Fee:
+₹20
+
+Delivery Fee (₹0–₹149):
+₹20
+
+Handling & Packaging Fee:
+₹5
+
+Minimum Order Value:
+Enable/Disable option
+
+Any changes should immediately reflect in the customer app.
+
+==================================================
+CUSTOMER APP INTEGRATION
+==================================================
+
+Call Dwarika:
+Use Store Contact Number from Settings.
+
+WhatsApp Support:
+Use WhatsApp Number from Settings.
+
+Contact Us Page:
+Show all information from Settings.
+
+No hardcoded phone numbers or emails should exist.
+
+==================================================
+FORGOT PASSWORD
+==================================================
+
+Current v1.0 implementation:
+
+When a customer clicks "Forgot Password":
+
+Show:
+
+Need help resetting your password?
+
+Contact Dwarika Support:
+
+Call Now
+WhatsApp Support
+
+Both buttons should use the numbers from Store Settings.
+
+Future versions may support email reset links, but v1.0 should use support contact methods.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not change the existing UI design.
+
+Only add a new Settings module and connect all customer-facing contact information dynamically.
+
+All future changes should be manageable from the Admin Panel without code modifications.

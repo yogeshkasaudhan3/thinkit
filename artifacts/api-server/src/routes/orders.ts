@@ -11,22 +11,64 @@
  * ───────────────────────────────────────────────────────────────────────────
  */
 import { Router, type IRouter } from "express";
-import { db, ordersTable, addressesTable, productsTable } from "@workspace/db";
+import { db, ordersTable, addressesTable, productsTable, storeSettingsTable } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { requireAuth, type AuthUser } from "../middleware/requireAuth";
 import { orderEvents } from "../lib/orderEvents";
 
 const router: IRouter = Router();
 
-// ── Pricing constants (must match the customer app) ───────────────────────────
-const HANDLING_FEE = 5;
-
-function computeSmallCartFee(subtotal: number): number {
-  return subtotal > 0 && subtotal < 100 ? 20 : 0;
+// ── Settings cache (1-min TTL, avoids a DB hit on every order) ───────────────
+interface FeeSettings {
+  handlingFee: number;
+  smallCartFee: number;
+  smallCartFeeThreshold: number;
+  deliveryFee: number;
+  freeDeliveryThreshold: number;
+  minOrderEnabled: boolean;
+  minOrderValue: number;
 }
 
-function computeDeliveryFee(subtotal: number): number {
-  return subtotal >= 150 ? 0 : 20;
+const FEE_DEFAULTS: FeeSettings = {
+  handlingFee: 5,
+  smallCartFee: 20,
+  smallCartFeeThreshold: 100,
+  deliveryFee: 20,
+  freeDeliveryThreshold: 150,
+  minOrderEnabled: false,
+  minOrderValue: 0,
+};
+
+let settingsCache: FeeSettings | null = null;
+let settingsCacheTime = 0;
+const SETTINGS_CACHE_TTL_MS = 60_000;
+
+async function getSettings(): Promise<FeeSettings> {
+  if (settingsCache && Date.now() - settingsCacheTime < SETTINGS_CACHE_TTL_MS) {
+    return settingsCache;
+  }
+  const [s] = await db
+    .select({
+      handlingFee: storeSettingsTable.handlingFee,
+      smallCartFee: storeSettingsTable.smallCartFee,
+      smallCartFeeThreshold: storeSettingsTable.smallCartFeeThreshold,
+      deliveryFee: storeSettingsTable.deliveryFee,
+      freeDeliveryThreshold: storeSettingsTable.freeDeliveryThreshold,
+      minOrderEnabled: storeSettingsTable.minOrderEnabled,
+      minOrderValue: storeSettingsTable.minOrderValue,
+    })
+    .from(storeSettingsTable);
+  settingsCache = s ?? FEE_DEFAULTS;
+  settingsCacheTime = Date.now();
+  return settingsCache;
+}
+
+function computeSmallCartFee(subtotal: number, s: FeeSettings): number {
+  return subtotal > 0 && subtotal < s.smallCartFeeThreshold ? s.smallCartFee : 0;
+}
+
+function computeDeliveryFee(subtotal: number, s: FeeSettings): number {
+  return subtotal >= s.freeDeliveryThreshold ? 0 : s.deliveryFee;
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -122,7 +164,8 @@ router.get("/orders", requireAuth, async (req, res): Promise<void> => {
 router.patch("/orders/:id/cancel", requireAuth, async (req, res): Promise<void> => {
   const user = res.locals.user as AuthUser;
 
-  const id = parseInt(req.params.id, 10);
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid order id" });
     return;
@@ -223,11 +266,20 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
     return { productId: String(p.id), name: p.name, brand: p.brand, weight: p.weight, qty: raw.qty, price: p.price };
   });
 
-  // ── 3. Compute totals server-side ─────────────────────────────────────────
+  // ── 3. Compute totals server-side using live settings ────────────────────
   const subtotal = items.reduce((sum, it) => sum + it.price * it.qty, 0);
-  const smallCartFee = computeSmallCartFee(subtotal);
-  const deliveryFee = computeDeliveryFee(subtotal);
-  const handlingFee = HANDLING_FEE;
+  const feeSettings = await getSettings();
+
+  // Enforce minimum order value if enabled
+  if (feeSettings.minOrderEnabled && subtotal < feeSettings.minOrderValue) {
+    res.status(400).json({
+      error: `Minimum order value is ₹${feeSettings.minOrderValue}. Please add more items to your cart.`,
+    });
+    return;
+  }
+  const smallCartFee = computeSmallCartFee(subtotal, feeSettings);
+  const deliveryFee = computeDeliveryFee(subtotal, feeSettings);
+  const handlingFee = feeSettings.handlingFee;
   const grandTotal = subtotal + smallCartFee + deliveryFee + handlingFee;
 
   // ── 4. Fetch customer address ─────────────────────────────────────────────

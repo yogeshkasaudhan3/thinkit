@@ -7,6 +7,7 @@ import productsRouter from "./products";
 import ordersRouter from "./orders";
 import bannersRouter from "./banners";
 import categoriesRouter from "./categories";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,7 @@ router.use(productsRouter);
 router.use(ordersRouter);
 router.use(bannersRouter);
 router.use(categoriesRouter);
+router.use(settingsRouter);
 router.use(adminRouter);
 router.use(storageRouter);
 
