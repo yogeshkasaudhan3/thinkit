@@ -1,0 +1,298 @@
+Build a complete Admin Panel for Thinkit by Dwarika.
+
+The Admin Panel should be simple, fast, mobile-friendly, desktop-friendly, and optimized for managing a single grocery store (Dwarika Grocery Mart).
+
+Do NOT add unnecessary complexity such as multi-admin support, delivery boy apps, GPS tracking, or analytics dashboards.
+
+The design must follow Thinkit's green and yellow branding and maintain a clean, premium, modern UI.
+
+==================================================
+1. ADMIN LOGIN
+==================================================
+
+Requirements:
+
+- Separate Admin Login Page
+- Username + Password authentication
+- Only one admin account is required for v1.0
+
+Default credentials:
+
+Username: admin
+Password: admin123
+
+After successful login:
+Redirect to Admin Dashboard.
+
+==================================================
+2. DASHBOARD
+==================================================
+
+Create a clean dashboard with the following cards:
+
+Today's Orders
+Today's Sales
+Average Delivery Time
+Orders Out For Delivery
+Pending Orders
+
+Use attractive cards with icons and proper spacing.
+
+Add:
+
+Recent Orders Section
+
+Show:
+- Customer Name
+- Order ID
+- Order Value
+- Status
+- Time
+
+==================================================
+3. NEW ORDER ALARM SYSTEM
+==================================================
+
+When a new order arrives:
+
+- Play a loud notification sound continuously.
+- Show a popup:
+
+NEW ORDER RECEIVED
+
+Customer Name
+Order Amount
+
+Buttons:
+
+Accept Order
+View Order
+
+The alarm should stop ONLY when:
+
+Accept Order is pressed.
+
+Do not auto-stop after a few seconds.
+
+==================================================
+4. ORDER MANAGEMENT
+==================================================
+
+Order flow:
+
+New Order
+↓
+
+Accepted
+↓
+
+Packing
+↓
+
+Out For Delivery
+↓
+
+Delivered
+
+Additional options:
+
+Cancelled
+
+Admin should be able to:
+
+- View complete order details
+- Customer name
+- Mobile number
+- Address
+- Ordered products
+- Total amount
+- Delivery fee
+- Handling fee
+- Payment method
+
+Order actions:
+
+Accept
+Mark Packing
+Mark Out For Delivery
+Mark Delivered
+Cancel Order
+
+==================================================
+5. PRODUCT MANAGEMENT
+==================================================
+
+Admin should be able to:
+
+Add Product
+Edit Product
+Delete Product
+Enable Product
+Disable Product
+
+Product fields:
+
+Product Name
+Brand
+Category
+Subcategory
+Description
+MRP
+Selling Price
+Weight/Variant
+Product Image
+Stock Quantity
+
+Extra options:
+
+Mark as:
+
+Best Seller
+Dwarika Special
+
+==================================================
+6. PRODUCT SEARCH
+==================================================
+
+Because there are 3000+ products:
+
+Create an instant product search system.
+
+Admin should be able to search by:
+
+Product Name
+Brand Name
+Category
+
+Search results must appear instantly.
+
+==================================================
+7. QUICK PRICE EDIT
+==================================================
+
+Admin should be able to update prices without opening the full edit page.
+
+Example:
+
+Aashirvaad Atta 5kg
+
+MRP:
+₹320
+
+Selling Price:
+₹299
+
+Save
+
+This should be fast and mobile-friendly.
+
+==================================================
+8. IN STOCK / OUT OF STOCK TOGGLE
+==================================================
+
+Each product should have:
+
+IN STOCK
+OUT OF STOCK
+
+One-click toggle.
+
+If a product is marked:
+
+OUT OF STOCK
+
+It should immediately disappear from the customer app and show:
+
+Out of Stock
+
+Customers must not be able to order it.
+
+This is extremely important for Thinkit because inventory is managed manually in the physical store.
+
+==================================================
+9. CSV BULK IMPORT
+==================================================
+
+Support bulk upload of 3000+ products.
+
+Requirements:
+
+Upload CSV File
+
+Preview products before importing
+
+Show:
+
+Import Success
+Import Failed
+
+Allow:
+
+Update existing products if already present.
+
+The system should be optimized for large grocery inventories.
+
+==================================================
+10. BANNER MANAGEMENT
+==================================================
+
+Create a banner management section.
+
+Admin should be able to:
+
+Add Banner
+Edit Banner
+Delete Banner
+Enable Banner
+Disable Banner
+
+Banner fields:
+
+Banner Image
+Title
+Subtitle
+Button Text
+
+Example:
+
+Title:
+Thinkit Grand Launch
+
+Subtitle:
+Free Delivery Above ₹150
+
+Button:
+Shop Now
+
+Multiple banners should be supported.
+
+==================================================
+11. RESPONSIVE DESIGN
+==================================================
+
+The Admin Panel must work perfectly on:
+
+Desktop
+Laptop
+Tablet
+Mobile
+
+Desktop is the primary usage device.
+
+==================================================
+12. IMPORTANT RULES
+==================================================
+
+DO NOT ADD:
+
+Multi-admin support
+Delivery boy app
+Live GPS tracking
+Complex analytics
+Inventory forecasting
+Multi-store support
+Advanced accounting modules
+
+Keep everything simple, fast, and optimized for one grocery store.
+
+The goal is to create a production-ready Admin Panel for Thinkit v1.0 that can efficiently manage 3000+ products and 50+ daily orders.

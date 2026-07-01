@@ -10,6 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: admin-auth
+    description: Admin authentication
+  - name: admin-dashboard
+    description: Admin dashboard
+  - name: admin-orders
+    description: Order management
+  - name: admin-products
+    description: Product management
+  - name: admin-banners
+    description: Banner management
 paths:
   /healthz:
     get:
@@ -24,6 +34,374 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Admin Auth ────────────────────────────────────────────────────────────────
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin-auth]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMe"
+        "401":
+          description: Invalid credentials
+
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin-auth]
+      summary: Admin logout
+      responses:
+        "200":
+          description: Logged out
+
+  /admin/me:
+    get:
+      operationId: getAdminMe
+      tags: [admin-auth]
+      summary: Get current admin session
+      responses:
+        "200":
+          description: Current admin info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMe"
+        "401":
+          description: Not authenticated
+
+  # ── Admin Dashboard ───────────────────────────────────────────────────────────
+  /admin/dashboard:
+    get:
+      operationId: getAdminDashboard
+      tags: [admin-dashboard]
+      summary: Get dashboard stats and recent orders
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  # ── Admin Orders ──────────────────────────────────────────────────────────────
+  /admin/orders:
+    get:
+      operationId: listAdminOrders
+      tags: [admin-orders]
+      summary: List all orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filter by status
+        - name: date
+          in: query
+          schema:
+            type: string
+          description: Filter by date (YYYY-MM-DD)
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /admin/orders/{id}:
+    get:
+      operationId: getAdminOrder
+      tags: [admin-orders]
+      summary: Get order detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Order not found
+
+  /admin/orders/{id}/status:
+    patch:
+      operationId: updateOrderStatus
+      tags: [admin-orders]
+      summary: Update order status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderStatusUpdate"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Order not found
+
+  # ── Admin Products ────────────────────────────────────────────────────────────
+  /admin/products:
+    get:
+      operationId: listAdminProducts
+      tags: [admin-products]
+      summary: List products with optional search/filter
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search by name or brand
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter by categoryId
+        - name: inStock
+          in: query
+          schema:
+            type: boolean
+          description: Filter by stock status
+        - name: enabled
+          in: query
+          schema:
+            type: boolean
+          description: Filter by enabled status
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminProduct"
+    post:
+      operationId: createAdminProduct
+      tags: [admin-products]
+      summary: Create a new product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProduct"
+
+  /admin/products/bulk:
+    post:
+      operationId: bulkImportProducts
+      tags: [admin-products]
+      summary: Bulk import products from parsed CSV data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkImportInput"
+      responses:
+        "200":
+          description: Import result summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkImportResult"
+
+  /admin/products/{id}:
+    get:
+      operationId: getAdminProduct
+      tags: [admin-products]
+      summary: Get a single product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProduct"
+        "404":
+          description: Product not found
+    patch:
+      operationId: updateAdminProduct
+      tags: [admin-products]
+      summary: Update a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProduct"
+        "404":
+          description: Product not found
+    delete:
+      operationId: deleteAdminProduct
+      tags: [admin-products]
+      summary: Delete a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/products/{id}/stock:
+    patch:
+      operationId: toggleProductStock
+      tags: [admin-products]
+      summary: Toggle product in-stock status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockToggle"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProduct"
+        "404":
+          description: Product not found
+
+  # ── Admin Banners ─────────────────────────────────────────────────────────────
+  /admin/banners:
+    get:
+      operationId: listAdminBanners
+      tags: [admin-banners]
+      summary: List all banners
+      responses:
+        "200":
+          description: List of banners
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Banner"
+    post:
+      operationId: createAdminBanner
+      tags: [admin-banners]
+      summary: Create a banner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannerInput"
+      responses:
+        "201":
+          description: Created banner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Banner"
+
+  /admin/banners/{id}:
+    patch:
+      operationId: updateAdminBanner
+      tags: [admin-banners]
+      summary: Update a banner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannerUpdate"
+      responses:
+        "200":
+          description: Updated banner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Banner"
+        "404":
+          description: Banner not found
+    delete:
+      operationId: deleteAdminBanner
+      tags: [admin-banners]
+      summary: Delete a banner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +412,311 @@ components:
       required:
         - status
 
+    # ── Admin Auth schemas ──────────────────────────────────────────────────────
+    AdminLoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AdminMe:
+      type: object
+      required: [username]
+      properties:
+        username:
+          type: string
+
+    # ── Dashboard schemas ───────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [todayOrders, todaySales, pendingOrders, outForDelivery, avgDeliveryMinutes, recentOrders]
+      properties:
+        todayOrders:
+          type: integer
+        todaySales:
+          type: integer
+        pendingOrders:
+          type: integer
+        outForDelivery:
+          type: integer
+        avgDeliveryMinutes:
+          type: integer
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+
+    # ── Order schemas ───────────────────────────────────────────────────────────
+    OrderItem:
+      type: object
+      required: [name, brand, weight, qty, price]
+      properties:
+        productId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        brand:
+          type: string
+        weight:
+          type: string
+        qty:
+          type: integer
+        price:
+          type: integer
+
+    OrderAddress:
+      type: object
+      required: [houseNumber, area, pincode]
+      properties:
+        houseNumber:
+          type: string
+        area:
+          type: string
+        landmark:
+          type: ["string", "null"]
+        pincode:
+          type: string
+
+    Order:
+      type: object
+      required: [id, orderNumber, customerName, customerMobile, address, items, subtotal, smallCartFee, deliveryFee, handlingFee, grandTotal, paymentMethod, status, createdAt]
+      properties:
+        id:
+          type: integer
+        orderNumber:
+          type: string
+        customerId:
+          type: ["integer", "null"]
+        customerName:
+          type: string
+        customerMobile:
+          type: string
+        address:
+          $ref: "#/components/schemas/OrderAddress"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        subtotal:
+          type: integer
+        smallCartFee:
+          type: integer
+        deliveryFee:
+          type: integer
+        handlingFee:
+          type: integer
+        grandTotal:
+          type: integer
+        paymentMethod:
+          type: string
+        orderNote:
+          type: ["string", "null"]
+        status:
+          type: string
+        createdAt:
+          type: string
+
+    OrderStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    # ── Product schemas ─────────────────────────────────────────────────────────
+    AdminProduct:
+      type: object
+      required: [id, name, brand, categoryId, weight, mrp, price, stockQty, inStock, enabled, isBestSeller, isDwarikaSpecial, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        brand:
+          type: string
+        categoryId:
+          type: string
+        subcategory:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        mrp:
+          type: integer
+        price:
+          type: integer
+        weight:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        stockQty:
+          type: integer
+        inStock:
+          type: boolean
+        enabled:
+          type: boolean
+        isBestSeller:
+          type: boolean
+        isDwarikaSpecial:
+          type: boolean
+        createdAt:
+          type: string
+
+    ProductInput:
+      type: object
+      required: [name, brand, categoryId, weight, mrp, price]
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+        categoryId:
+          type: string
+        subcategory:
+          type: string
+        description:
+          type: string
+        mrp:
+          type: integer
+        price:
+          type: integer
+        weight:
+          type: string
+        imageUrl:
+          type: string
+        stockQty:
+          type: integer
+        inStock:
+          type: boolean
+        enabled:
+          type: boolean
+        isBestSeller:
+          type: boolean
+        isDwarikaSpecial:
+          type: boolean
+
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+        categoryId:
+          type: string
+        subcategory:
+          type: string
+        description:
+          type: string
+        mrp:
+          type: integer
+        price:
+          type: integer
+        weight:
+          type: string
+        imageUrl:
+          type: string
+        stockQty:
+          type: integer
+        inStock:
+          type: boolean
+        enabled:
+          type: boolean
+        isBestSeller:
+          type: boolean
+        isDwarikaSpecial:
+          type: boolean
+
+    StockToggle:
+      type: object
+      required: [inStock]
+      properties:
+        inStock:
+          type: boolean
+
+    BulkImportInput:
+      type: object
+      required: [products]
+      properties:
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductInput"
+
+    BulkImportResult:
+      type: object
+      required: [imported, updated, failed, errors]
+      properties:
+        imported:
+          type: integer
+        updated:
+          type: integer
+        failed:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    # ── Banner schemas ──────────────────────────────────────────────────────────
+    Banner:
+      type: object
+      required: [id, title, enabled, sortOrder, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        subtitle:
+          type: ["string", "null"]
+        buttonText:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        bg:
+          type: ["string", "null"]
+        enabled:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+
+    BannerInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: string
+        buttonText:
+          type: string
+        imageUrl:
+          type: string
+        bg:
+          type: string
+        enabled:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    BannerUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: string
+        buttonText:
+          type: string
+        imageUrl:
+          type: string
+        bg:
+          type: string
+        enabled:
+          type: boolean
+        sortOrder:
+          type: integer
