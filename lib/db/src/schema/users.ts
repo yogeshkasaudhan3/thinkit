@@ -1,13 +1,10 @@
-import { pgTable, serial, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
-  googleId: text("google_id").unique().notNull(),
-  email: text("email").unique().notNull(),
+  mobile: text("mobile").unique().notNull(),
   name: text("name").notNull(),
-  picture: text("picture"),
-  phone: text("phone"),
-  profileComplete: boolean("profile_complete").default(false).notNull(),
+  passwordHash: text("password_hash").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

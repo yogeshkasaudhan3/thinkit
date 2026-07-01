@@ -5,22 +5,17 @@ import { useApp } from '../context/AppContext';
 
 export default function SplashPage() {
   const [, setLocation] = useLocation();
-  const { authStatus, authUser } = useApp();
+  const { authStatus } = useApp();
 
   useEffect(() => {
     if (authStatus === 'loading') return;
 
     const timer = setTimeout(() => {
-      if (authStatus === 'authenticated') {
-        // Returning user: go straight to home (or setup if profile incomplete)
-        setLocation(authUser?.profileComplete ? '/home' : '/setup');
-      } else {
-        setLocation('/signin');
-      }
+      setLocation(authStatus === 'authenticated' ? '/home' : '/signin');
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [authStatus, authUser, setLocation]);
+  }, [authStatus, setLocation]);
 
   return (
     <motion.div
@@ -49,7 +44,7 @@ export default function SplashPage() {
         </motion.p>
       </motion.div>
 
-      {/* Animated dots */}
+      {/* Animated loading dots */}
       <div className="absolute bottom-16 flex gap-2">
         {[0, 1, 2].map(i => (
           <motion.div

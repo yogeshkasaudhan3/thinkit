@@ -12,10 +12,7 @@ export interface CartItem {
 export interface AuthUser {
   id: number;
   name: string;
-  email: string;
-  picture?: string | null;
-  phone?: string | null;
-  profileComplete: boolean;
+  mobile: string;
 }
 
 export interface UserAddress {
@@ -26,7 +23,7 @@ export interface UserAddress {
   pincode: string;
 }
 
-// Backward-compat shape used by existing pages
+// Backward-compat shape used by existing pages (orders, cart, etc.)
 export interface UserProfile {
   name: string;
   phone: string;
@@ -71,12 +68,10 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 // ─── Provider ──────────────────────────────────────────────────────────────────
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  // Auth state
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [userAddress, setUserAddress] = useState<UserAddress | null>(null);
 
-  // Cart (localStorage-persisted)
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('thinkit_cart');
@@ -89,7 +84,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'upi'>('cod');
   const [orderNote, setOrderNote] = useState('');
 
-  // Persist cart
   useEffect(() => {
     localStorage.setItem('thinkit_cart', JSON.stringify(cart));
   }, [cart]);
@@ -116,16 +110,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Check session on mount
-  useEffect(() => {
-    refreshAuth();
-  }, [refreshAuth]);
+  useEffect(() => { refreshAuth(); }, [refreshAuth]);
 
   const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch {
-      // ignore network errors — clear local state regardless
+      // ignore — clear local state regardless
     }
     setAuthUser(null);
     setUserAddress(null);
@@ -148,15 +139,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = (productId: string) =>
     setCart(prev => prev.filter(item => item.product.id !== productId));
-  };
 
   const updateQty = (productId: string, qty: number) => {
     if (qty <= 0) { removeFromCart(productId); return; }
-    setCart(prev =>
-      prev.map(item => item.product.id === productId ? { ...item, qty } : item)
-    );
+    setCart(prev => prev.map(item => item.product.id === productId ? { ...item, qty } : item));
   };
 
   const clearCart = () => {
@@ -169,11 +157,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const isLoggedIn = authStatus === 'authenticated' && authUser !== null;
 
   // ── Backward-compat user object ─────────────────────────────────────────────
-
   const user: UserProfile | null = authUser
     ? {
         name: authUser.name,
-        phone: authUser.phone ?? '',
+        phone: authUser.mobile,
         flat: userAddress?.houseNumber ?? '',
         area: userAddress?.area ?? '',
         landmark: userAddress?.landmark ?? '',
@@ -181,33 +168,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     : null;
 
-  // No-op shim — existing pages that call setUser(null) should migrate to logout()
-  const setUser = (_u: UserProfile | null) => {
-    if (_u === null) logout();
-  };
+  const setUser = (_u: UserProfile | null) => { if (_u === null) logout(); };
 
   return (
     <AppContext.Provider
       value={{
-        authStatus,
-        authUser,
-        userAddress,
-        isLoggedIn,
-        refreshAuth,
-        logout,
-        user,
-        setUser,
-        cart,
-        addToCart,
-        removeFromCart,
-        updateQty,
-        clearCart,
-        cartTotal,
-        cartCount,
-        paymentMethod,
-        setPaymentMethod,
-        orderNote,
-        setOrderNote,
+        authStatus, authUser, userAddress, isLoggedIn, refreshAuth, logout,
+        user, setUser,
+        cart, addToCart, removeFromCart, updateQty, clearCart, cartTotal, cartCount,
+        paymentMethod, setPaymentMethod, orderNote, setOrderNote,
       }}
     >
       {children}

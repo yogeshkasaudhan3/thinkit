@@ -1,43 +1,109 @@
 import { Router, type Request, type Response } from "express";
-import passport from "passport";
-import { db, addressesTable } from "@workspace/db";
+import bcrypt from "bcryptjs";
+import { db, usersTable, addressesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { requireAuth, type AuthUser } from "../middleware/requireAuth";
 
 const router = Router();
 
-// ─── Initiate Google OAuth ────────────────────────────────────────────────────
-router.get("/auth/google", (req: Request, res: Response, next) => {
-  // If credentials were not configured at startup, fail gracefully
-  const strategies = (passport as unknown as { _strategies: Record<string, unknown> })._strategies;
-  if (!strategies?.google) {
-    res.status(503).json({ error: "Google Sign-In is not configured on this server." });
+// ─── Sign Up ──────────────────────────────────────────────────────────────────
+router.post("/auth/signup", async (req: Request, res: Response): Promise<void> => {
+  const { name, mobile, password, houseNumber, area, landmark, pincode } =
+    req.body as Record<string, string | undefined>;
+
+  if (!name?.trim() || !mobile?.trim() || !password || !houseNumber?.trim() || !area?.trim() || !pincode?.trim()) {
+    res.status(400).json({ error: "name, mobile, password, houseNumber, area, and pincode are required" });
     return;
   }
-  passport.authenticate("google", {
-    scope: ["profile", "email"],
-  })(req, res, next);
+  if (!/^\d{10}$/.test(mobile.trim())) {
+    res.status(400).json({ error: "Mobile must be a 10-digit number" });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: "Password must be at least 6 characters" });
+    return;
+  }
+  if (!/^\d{6}$/.test(pincode.trim())) {
+    res.status(400).json({ error: "Pincode must be 6 digits" });
+    return;
+  }
+
+  const [existing] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.mobile, mobile.trim()));
+
+  if (existing) {
+    res.status(409).json({ error: "Mobile number is already registered. Please log in." });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  const [user] = await db
+    .insert(usersTable)
+    .values({ mobile: mobile.trim(), name: name.trim(), passwordHash })
+    .returning();
+
+  await db.insert(addressesTable).values({
+    userId: user.id,
+    houseNumber: houseNumber.trim(),
+    area: area.trim(),
+    landmark: (landmark ?? "").trim(),
+    pincode: pincode.trim(),
+  });
+
+  // Regenerate session ID to prevent session fixation
+  req.session.regenerate((err) => {
+    if (err) { res.status(500).json({ error: "Session error" }); return; }
+    req.session.userId = user.id;
+    req.session.save((saveErr) => {
+      if (saveErr) { res.status(500).json({ error: "Session error" }); return; }
+      res.status(201).json({ success: true });
+    });
+  });
 });
 
-// ─── Google OAuth callback ────────────────────────────────────────────────────
-router.get(
-  "/auth/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: "/signin?error=auth_failed",
-  }),
-  (req: Request, res: Response): void => {
-    const user = req.user as Express.User;
-    res.redirect(user.profileComplete ? "/home" : "/setup");
-  },
-);
+// ─── Log In ───────────────────────────────────────────────────────────────────
+router.post("/auth/login", async (req: Request, res: Response): Promise<void> => {
+  const { mobile, password } = req.body as Record<string, string | undefined>;
 
-// ─── Get current session user + address ──────────────────────────────────────
-router.get("/auth/me", async (req: Request, res: Response): Promise<void> => {
-  if (!req.isAuthenticated() || !req.user) {
-    res.status(401).json({ authenticated: false });
+  if (!mobile?.trim() || !password) {
+    res.status(400).json({ error: "Mobile and password are required" });
     return;
   }
 
-  const user = req.user as Express.User;
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.mobile, mobile.trim()));
+
+  if (!user) {
+    res.status(404).json({ code: "USER_NOT_FOUND", error: "You are a new customer. Please create an account first." });
+    return;
+  }
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ code: "WRONG_PASSWORD", error: "Incorrect password. Please try again." });
+    return;
+  }
+
+  // Regenerate session ID to prevent session fixation
+  req.session.regenerate((err) => {
+    if (err) { res.status(500).json({ error: "Session error" }); return; }
+    req.session.userId = user.id;
+    req.session.save((saveErr) => {
+      if (saveErr) { res.status(500).json({ error: "Session error" }); return; }
+      res.json({ success: true });
+    });
+  });
+});
+
+// ─── Current user ─────────────────────────────────────────────────────────────
+router.get("/auth/me", requireAuth, async (_req: Request, res: Response): Promise<void> => {
+  const user = res.locals.user as AuthUser;
+
   const [address] = await db
     .select()
     .from(addressesTable)
@@ -45,29 +111,16 @@ router.get("/auth/me", async (req: Request, res: Response): Promise<void> => {
 
   res.json({
     authenticated: true,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      picture: user.picture,
-      phone: user.phone,
-      profileComplete: user.profileComplete,
-    },
+    user: { id: user.id, name: user.name, mobile: user.mobile },
     address: address ?? null,
   });
 });
 
-// ─── Logout ───────────────────────────────────────────────────────────────────
+// ─── Log Out ──────────────────────────────────────────────────────────────────
 router.post("/auth/logout", (req: Request, res: Response): void => {
-  req.logout((err) => {
-    if (err) {
-      res.status(500).json({ error: "Logout failed" });
-      return;
-    }
-    req.session.destroy(() => {
-      res.clearCookie("connect.sid");
-      res.json({ success: true });
-    });
+  req.session.destroy(() => {
+    res.clearCookie("connect.sid");
+    res.json({ success: true });
   });
 });
 
