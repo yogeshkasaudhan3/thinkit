@@ -26,12 +26,49 @@ export default function CheckoutPage() {
   const deliveryFee   = cartTotal >= 150 ? 0 : 20;
   const grandTotal    = cartTotal + smallCartFee + deliveryFee + HANDLING_FEE;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     setIsPlacing(true);
-    setTimeout(() => {
+    try {
+      const items = cart.map(item => ({
+        productId: item.product.id,
+        name: item.product.name,
+        brand: item.product.brand,
+        weight: item.product.weight,
+        qty: item.qty,
+        price: item.product.price,
+      }));
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items,
+          subtotal: cartTotal,
+          smallCartFee,
+          deliveryFee,
+          handlingFee: HANDLING_FEE,
+          grandTotal,
+          paymentMethod,
+          orderNote: orderNote || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert((data as { error?: string }).error ?? 'Failed to place order. Please try again.');
+        setIsPlacing(false);
+        return;
+      }
+
+      // Order saved — show confirmation, clear cart, redirect
       clearCart();
-      setLocation('/orders');
-    }, 1500);
+      // Keep isPlacing=true so the success overlay stays visible
+      setTimeout(() => setLocation('/orders'), 1800);
+    } catch {
+      alert('Network error. Please check your connection and try again.');
+      setIsPlacing(false);
+    }
   };
 
   return (

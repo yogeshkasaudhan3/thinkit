@@ -4,12 +4,14 @@ import authRouter from "./auth";
 import adminRouter from "./admin";
 import storageRouter from "./storage";
 import productsRouter from "./products";
+import ordersRouter from "./orders";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
 router.use(productsRouter);
+router.use(ordersRouter);
 router.use(adminRouter);
 router.use(storageRouter);
 
