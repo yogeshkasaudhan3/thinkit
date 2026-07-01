@@ -11,6 +11,7 @@ import Products from '@/pages/products';
 import ProductForm from '@/pages/product-form';
 import BulkImport from '@/pages/bulk-import';
 import Banners from '@/pages/banners';
+import Categories from '@/pages/categories';
 
 import { AdminLayout } from '@/components/layout/admin-layout';
 import { AuthGuard } from '@/components/auth-guard';
@@ -29,6 +30,7 @@ function AuthenticatedRoutes() {
           <Route path="/products/bulk" component={BulkImport} />
           <Route path="/products/:id/edit" component={ProductForm} />
           <Route path="/banners" component={Banners} />
+          <Route path="/categories" component={Categories} />
           <Route component={NotFound} />
         </Switch>
       </AdminLayout>

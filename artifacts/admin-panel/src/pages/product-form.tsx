@@ -23,11 +23,17 @@ import { ArrowLeft, Loader2, Save, Trash2, Image as ImageIcon, Upload, X } from 
 import { useUpload } from '@workspace/object-storage-web';
 import { useToast } from '@/hooks/use-toast';
 
-const CATEGORIES = [
-  '1: Atta & Rice', '2: Dairy & Bread', '3: Oil & Ghee', '4: Biscuits & Snacks', 
-  '5: Masale', '6: Beverages', '7: Home Care', '8: Personal Care', 
-  '9: Baby Care', '10: Pooja Items', '11: Dry Fruits', '12: Breakfast'
-];
+// Fetched dynamically from the admin API so category management is in sync
+import { useQuery } from '@tanstack/react-query';
+
+function useAdminCategoryList() {
+  return useQuery<{ id: number; name: string }[]>({
+    queryKey: ['/api/admin/categories'],
+    queryFn: () =>
+      fetch('/api/admin/categories', { credentials: 'include' })
+        .then((r) => (r.ok ? r.json() : [])),
+  });
+}
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
@@ -55,6 +61,8 @@ export default function ProductForm() {
   const productId = isNew ? null : parseInt(params.id!, 10);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: categoryList = [] } = useAdminCategoryList();
 
   const { data: product, isLoading: isLoadingProduct } = useGetAdminProduct(productId as number, {
     query: { queryKey: getGetAdminProductQueryKey(productId ?? 0), enabled: !isNew && !!productId }
@@ -266,8 +274,8 @@ export default function ProductForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {CATEGORIES.map(cat => (
-                          <SelectItem key={cat} value={cat}>{cat.split(':')[1]?.trim() || cat}</SelectItem>
+                        {categoryList.map(cat => (
+                          <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

@@ -9,13 +9,15 @@ import {
   Package,
   Image as ImageIcon,
   LogOut,
-  Store
+  Store,
+  LayoutGrid,
 } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Orders', path: '/orders', icon: ShoppingBag },
   { name: 'Products', path: '/products', icon: Package },
+  { name: 'Categories', path: '/categories', icon: LayoutGrid },
   { name: 'Banners', path: '/banners', icon: ImageIcon },
 ];
 

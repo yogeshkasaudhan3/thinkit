@@ -1,0 +1,143 @@
+Fix and improve the following critical issues in Thinkit v1.0.
+
+==================================================
+1. NEW ORDER NOTIFICATION SOUND NOT WORKING
+==================================================
+
+Current Problem:
+New orders are appearing in the Admin Panel, but no notification sound is playing.
+
+Requirements:
+
+- Play a loud notification sound immediately when a new order arrives.
+- The sound must continue in a loop until the admin clicks "Accept Order".
+- Show a popup:
+
+NEW ORDER RECEIVED
+
+Customer Name
+Order Amount
+
+Buttons:
+- Accept Order
+- View Order
+
+- The alarm should stop only after Accept Order is pressed.
+- Ensure this works without manually refreshing the page.
+
+==================================================
+2. BANNER MANAGEMENT NOT SYNCING
+==================================================
+
+Current Problem:
+When a banner is changed from the Admin Panel, it does not appear in the Customer App.
+
+Requirements:
+
+- Customer App and Admin Panel must use the same banners table.
+- Remove any hardcoded or mock banners from the Customer App.
+- Any banner added, edited, enabled, or disabled from Admin should instantly reflect in the Customer App.
+- Support multiple active banners with a slider/carousel.
+
+==================================================
+3. DIRECT IMAGE UPLOAD
+==================================================
+
+Current Problem:
+Products require Image URLs.
+
+Requirements:
+
+- Remove the Image URL requirement.
+- Add a "Choose Image" button.
+- Allow direct image upload from the computer.
+- Automatically store and save the uploaded image path.
+- Show image preview before saving.
+- Support Add Product and Edit Product pages.
+- Keep backward compatibility with existing Cloudinary URLs.
+
+==================================================
+4. CATEGORY MANAGEMENT SYSTEM
+==================================================
+
+Current Problem:
+Admin cannot manage categories.
+
+Build a complete Category Management module.
+
+Admin should be able to:
+
+✅ Add New Category
+✅ Edit Category Name
+✅ Delete Category
+✅ Enable/Disable Category
+✅ Change Category Order
+✅ Upload Category Cover Image
+
+Category fields:
+
+- Category Name
+- Category Icon/Cover Image
+- Status (Active/Inactive)
+- Display Order
+
+Examples:
+
+Atta, Rice & Dal
+Dairy & Bread
+Oil & Ghee
+Masale
+Snacks
+Beverages
+Home Care
+Personal Care
+Baby Care
+Pooja Items
+Dry Fruits
+Breakfast & Cereals
+
+==================================================
+5. CATEGORY IMAGES
+==================================================
+
+Requirements:
+
+- Every category should support a cover image upload.
+- Images uploaded from Admin Panel should immediately appear in the Customer App.
+- Show image preview in Admin Panel.
+- Customer App should automatically use the latest uploaded category images.
+
+==================================================
+6. CUSTOMER APP CATEGORY SYNC
+==================================================
+
+Remove all hardcoded categories.
+
+Customer App must fetch categories dynamically from the database.
+
+Any category:
+
+- Added
+- Edited
+- Deleted
+- Disabled
+- Reordered
+
+from Admin Panel should instantly reflect in the Customer App.
+
+==================================================
+7. IMPORTANT
+==================================================
+
+Do NOT change the existing UI design.
+
+Only fix and improve:
+
+- New Order Notification Sound
+- Banner Synchronization
+- Direct Image Upload
+- Complete Category Management System
+- Category Cover Images
+- Real-time Customer App Synchronization
+
+These features are mandatory for Thinkit v1.0 production launch.

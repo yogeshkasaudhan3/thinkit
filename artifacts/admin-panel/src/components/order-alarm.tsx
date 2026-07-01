@@ -26,34 +26,60 @@ export function OrderAlarm() {
   const { mutate: updateStatus, isPending } = useUpdateOrderStatus();
   const [, setLocation] = useLocation();
 
+  // Pre-unlock AudioContext on first user interaction so SSE-triggered alarm works.
+  // Chrome suspends AudioContext if it wasn't created during a user gesture; the
+  // fix is to create + resume it during the FIRST click/keydown, before any order arrives.
+  useEffect(() => {
+    const unlock = () => {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+    };
+    document.addEventListener('pointerdown', unlock, { once: true });
+    document.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
+  const playBeep = (ctx: AudioContext, delay = 0) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(880, ctx.currentTime + delay);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + delay + 0.15);
+    gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+    gain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + delay + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + 0.5);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + 0.6);
+  };
+
+  const scheduleBeeps = (ctx: AudioContext) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      playBeep(ctx, 0);
+      playBeep(ctx, 0.25);
+    }, 1000);
+  };
+
   const startAlarm = () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') ctx.resume();
 
-    if (intervalRef.current) clearInterval(intervalRef.current);
-
-    const playBeep = (delay = 0) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(880, ctx.currentTime + delay);
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + delay + 0.15);
-      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
-      gain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + delay + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + 0.5);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.6);
-    };
-
-    intervalRef.current = setInterval(() => {
-      playBeep(0);
-      playBeep(0.25);
-    }, 1000);
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => scheduleBeeps(ctx));
+    } else {
+      scheduleBeeps(ctx);
+    }
   };
 
   const stopAlarm = () => {
