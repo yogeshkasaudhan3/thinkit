@@ -6,10 +6,17 @@ import { eq } from "drizzle-orm";
 const router = Router();
 
 // ─── Initiate Google OAuth ────────────────────────────────────────────────────
-router.get(
-  "/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] }),
-);
+router.get("/auth/google", (req: Request, res: Response, next) => {
+  // If credentials were not configured at startup, fail gracefully
+  const strategies = (passport as unknown as { _strategies: Record<string, unknown> })._strategies;
+  if (!strategies?.google) {
+    res.status(503).json({ error: "Google Sign-In is not configured on this server." });
+    return;
+  }
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+  })(req, res, next);
+});
 
 // ─── Google OAuth callback ────────────────────────────────────────────────────
 router.get(

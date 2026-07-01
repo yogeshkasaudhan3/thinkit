@@ -1,0 +1,2 @@
+- [Auth architecture](auth-architecture.md) — session+passport Google OAuth; db schema in lib/db with no drizzle-zod (Zod v3/v4 mismatch); lib/db must be compiled before api-server typecheck
+- [ProtectedRoute pattern](protected-route.md) — ProtectedRoute + SetupRoute both guard on authStatus==='loading' before redirecting; /setup only accessible to authenticated users without profileComplete

@@ -22,8 +22,18 @@ import NotFound from '@/pages/not-found';
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { isLoggedIn } = useApp();
+  const { isLoggedIn, authStatus } = useApp();
+  if (authStatus === 'loading') return null;
   return isLoggedIn ? <Component /> : <Redirect to="/signin" />;
+}
+
+// /setup is only for authenticated users who haven't completed their profile
+function SetupRoute() {
+  const { authStatus, authUser } = useApp();
+  if (authStatus === 'loading') return null;
+  if (authStatus === 'unauthenticated') return <Redirect to="/signin" />;
+  if (authUser?.profileComplete) return <Redirect to="/home" />;
+  return <ProfileSetupPage />;
 }
 
 function Router() {
@@ -31,7 +41,7 @@ function Router() {
     <Switch>
       <Route path="/" component={SplashPage} />
       <Route path="/signin" component={SignInPage} />
-      <Route path="/setup" component={ProfileSetupPage} />
+      <Route path="/setup">{() => <SetupRoute />}</Route>
       <Route path="/home">{() => <ProtectedRoute component={HomePage} />}</Route>
       <Route path="/categories">{() => <ProtectedRoute component={CategoriesPage} />}</Route>
       <Route path="/category/:id">{() => <ProtectedRoute component={SubcategoryPage} />}</Route>
