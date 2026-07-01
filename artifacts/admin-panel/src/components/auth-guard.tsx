@@ -1,10 +1,9 @@
 import { ReactNode } from 'react';
 import { useGetAdminMe, getGetAdminMeQueryKey } from '@workspace/api-client-react';
-import { useLocation } from 'wouter';
+import { Redirect } from 'wouter';
 import { Loader2 } from 'lucide-react';
 
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const [, setLocation] = useLocation();
   const { data: admin, isLoading, isError } = useGetAdminMe({
     query: {
       queryKey: getGetAdminMeQueryKey(),
@@ -21,8 +20,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   }
 
   if (isError || !admin) {
-    setLocation('/login');
-    return null;
+    return <Redirect to="/login" />;
   }
 
   return <>{children}</>;

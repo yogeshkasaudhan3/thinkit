@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAdminLogin, useGetAdminMe, getGetAdminMeQueryKey } from '@workspace/api-client-react';
-import { useLocation } from 'wouter';
+import { useLocation, Redirect } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,7 +28,7 @@ export default function Login() {
   // If already logged in, redirect
   const { data: admin } = useGetAdminMe({ query: { queryKey: getGetAdminMeQueryKey(), retry: false } });
   if (admin) {
-    setLocation('/dashboard');
+    return <Redirect to="/dashboard" />;
   }
 
   const { mutate: login, isPending } = useAdminLogin();
