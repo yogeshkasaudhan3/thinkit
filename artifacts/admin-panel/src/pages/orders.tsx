@@ -55,6 +55,14 @@ const CANCELLATION_REASONS = [
   'Other',
 ] as const;
 
+const OFD_CANCELLATION_REASONS = [
+  'Customer did not answer calls',
+  'Customer refused delivery',
+  'Wrong address',
+  'Payment issue',
+  'Other',
+] as const;
+
 function statusLabel(status: string) {
   return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -283,11 +291,13 @@ export default function Orders() {
 function CancelOrderDialog({
   open,
   orderId,
+  isOutForDelivery,
   onClose,
   onSuccess,
 }: {
   open: boolean;
   orderId: number;
+  isOutForDelivery?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -295,6 +305,8 @@ function CancelOrderDialog({
   const [customReason, setCustomReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const reasons = isOutForDelivery ? OFD_CANCELLATION_REASONS : CANCELLATION_REASONS;
 
   const handleClose = () => {
     if (!isSubmitting) {
@@ -307,7 +319,7 @@ function CancelOrderDialog({
 
   const handleSubmit = async () => {
     const reason = selectedReason === 'Other' ? customReason.trim() : selectedReason;
-    if (!reason) {
+    if (!selectedReason) {
       setError('Please select a cancellation reason.');
       return;
     }
@@ -351,10 +363,28 @@ function CancelOrderDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <p className="text-sm text-muted-foreground">Select the reason for cancellation:</p>
+          {/* OFD-specific warning */}
+          {isOutForDelivery && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-1">
+              <div className="flex items-center gap-2 font-semibold text-orange-700 text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                WARNING!
+              </div>
+              <p className="text-sm text-orange-700">
+                This order is already out for delivery.
+              </p>
+              <p className="text-sm font-medium text-orange-800">
+                Are you sure you want to cancel it?
+              </p>
+            </div>
+          )}
+
+          <p className="text-sm text-muted-foreground">
+            {isOutForDelivery ? 'Reason:' : 'Select the reason for cancellation:'}
+          </p>
 
           <div className="space-y-2">
-            {CANCELLATION_REASONS.map((reason) => (
+            {reasons.map((reason) => (
               <label
                 key={reason}
                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -402,7 +432,7 @@ function CancelOrderDialog({
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
-            Keep Order
+            {isOutForDelivery ? 'Go Back' : 'Keep Order'}
           </Button>
           <Button
             variant="destructive"
@@ -410,7 +440,7 @@ function CancelOrderDialog({
             disabled={isSubmitting || !selectedReason}
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirm Cancellation
+            Cancel Order
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -735,9 +765,19 @@ function OrderSlideOver({ orderId, onClose }: { orderId: number | null; onClose:
         );
       case 'out_for_delivery':
         return (
-          <Button className="bg-primary hover:bg-primary/90 text-white" onClick={() => setPaymentDialogOpen(true)} disabled={isUpdating}>
-            <CheckCircle2 className="mr-2 h-4 w-4" /> Mark Delivered
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              className="text-destructive border-destructive hover:bg-destructive hover:text-white"
+              onClick={() => setCancelDialogOpen(true)}
+              disabled={isUpdating}
+            >
+              <XCircle className="mr-2 h-4 w-4" /> Cancel Order
+            </Button>
+            <Button className="bg-primary hover:bg-primary/90 text-white" onClick={() => setPaymentDialogOpen(true)} disabled={isUpdating}>
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Mark Delivered
+            </Button>
+          </>
         );
       default:
         return null;
@@ -919,6 +959,7 @@ function OrderSlideOver({ orderId, onClose }: { orderId: number | null; onClose:
         <CancelOrderDialog
           open={cancelDialogOpen}
           orderId={orderId}
+          isOutForDelivery={order?.status === 'out_for_delivery'}
           onClose={() => setCancelDialogOpen(false)}
           onSuccess={handleCancelSuccess}
         />

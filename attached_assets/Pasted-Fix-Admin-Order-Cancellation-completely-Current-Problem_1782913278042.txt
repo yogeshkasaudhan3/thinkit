@@ -1,0 +1,95 @@
+Fix Admin Order Cancellation completely.
+
+Current Problems:
+
+1. After selecting a cancellation reason, clicking Cancel shows:
+
+"Failed to cancel order. Please try again."
+
+2. The Cancel button disappears when an order status becomes "Out For Delivery".
+
+Requirements:
+
+==================================================
+1. FIX CANCELLATION API
+==================================================
+
+- Debug the cancel order backend API.
+- Ensure the selected cancellation reason is sent correctly.
+- Save both:
+
+Order Status = Cancelled
+Cancellation Reason = selected reason
+
+in the database.
+
+- Update the UI immediately after successful cancellation.
+
+==================================================
+2. ADMIN CANCELLATION RULES
+==================================================
+
+Admin should be allowed to cancel orders in these states:
+
+✅ New Order
+✅ Accepted
+✅ Packing
+✅ Out For Delivery
+
+Only Delivered orders cannot be cancelled.
+
+==================================================
+3. EXTRA CONFIRMATION FOR OUT FOR DELIVERY
+==================================================
+
+If the order is already Out For Delivery:
+
+Show:
+
+WARNING!
+
+This order is already out for delivery.
+
+Are you sure you want to cancel it?
+
+Reason:
+- Customer did not answer calls
+- Customer refused delivery
+- Wrong address
+- Payment issue
+- Other
+
+Buttons:
+Cancel Order
+Go Back
+
+==================================================
+4. CUSTOMER APP
+==================================================
+
+Customers should see:
+
+Order Cancelled
+
+Reason:
+Customer did not answer calls
+
+This should appear in:
+
+- Order Details
+- Order History
+
+==================================================
+5. SALES CALCULATION
+==================================================
+
+Cancelled orders must never be included in:
+
+- Today's Sales
+- Revenue
+- Payment Reports
+
+Only Delivered + Paid orders should count as sales.
+
+Do not change the UI design.
+Only fix the cancellation system and business logic.
