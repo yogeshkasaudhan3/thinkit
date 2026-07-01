@@ -20,8 +20,11 @@ export default function CheckoutPage() {
     return null;
   }
 
-  const DELIVERY_FEE = cartTotal >= 299 ? 0 : 20;
-  const grandTotal = cartTotal + DELIVERY_FEE;
+  // ── Thinkit v1.0 Pricing Model ───────────────────────────────────────────────
+  const HANDLING_FEE = 5;
+  const smallCartFee  = cartTotal > 0 && cartTotal < 100 ? 20 : 0;
+  const deliveryFee   = cartTotal >= 150 ? 0 : 20;
+  const grandTotal    = cartTotal + smallCartFee + deliveryFee + HANDLING_FEE;
 
   const handlePlaceOrder = () => {
     setIsPlacing(true);
@@ -89,19 +92,32 @@ export default function CheckoutPage() {
             ))}
           </div>
           
-          <div className="border-t border-gray-100 pt-3 space-y-2 text-sm">
+          <div className="border-t border-gray-100 pt-3 space-y-2.5 text-sm">
             <div className="flex justify-between text-gray-600">
-              <span>Item Total</span>
+              <span>Items Total</span>
               <span>₹{cartTotal}</span>
             </div>
+            {smallCartFee > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span className="flex items-center gap-1.5">
+                  Small Cart Fee
+                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">below ₹100</span>
+                </span>
+                <span>₹{smallCartFee}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-600">
               <span>Delivery Fee</span>
-              <span className={DELIVERY_FEE === 0 ? "text-green-600 font-medium" : ""}>
-                {DELIVERY_FEE === 0 ? "FREE" : `₹${DELIVERY_FEE}`}
+              <span className={deliveryFee === 0 ? 'text-green-600 font-semibold' : ''}>
+                {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
               </span>
             </div>
-            <div className="flex justify-between font-bold text-base text-gray-900 mt-2">
-              <span>Amount to Pay</span>
+            <div className="flex justify-between text-gray-600">
+              <span>Handling &amp; Packaging Fee</span>
+              <span>₹{HANDLING_FEE}</span>
+            </div>
+            <div className="flex justify-between font-bold text-base text-gray-900 border-t border-dashed border-gray-200 pt-3 mt-1">
+              <span>Grand Total</span>
               <span>₹{grandTotal}</span>
             </div>
           </div>

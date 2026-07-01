@@ -9,10 +9,11 @@ export default function CartPage() {
   const [, setLocation] = useLocation();
   const { cart, cartTotal, cartCount, updateQty, removeFromCart, paymentMethod, setPaymentMethod, orderNote, setOrderNote } = useApp();
 
-  const DELIVERY_FEE = cartTotal >= 299 ? 0 : 20;
-  const MIN_ORDER = 100;
-  const grandTotal = cartTotal + (cartTotal > 0 ? DELIVERY_FEE : 0);
-  const meetsMinOrder = cartTotal >= MIN_ORDER;
+  // ── Thinkit v1.0 Pricing Model ───────────────────────────────────────────────
+  const HANDLING_FEE = 5;
+  const smallCartFee  = cartTotal > 0 && cartTotal < 100 ? 20 : 0;
+  const deliveryFee   = cartTotal >= 150 ? 0 : 20;
+  const grandTotal    = cartTotal + smallCartFee + deliveryFee + HANDLING_FEE;
 
   if (cart.length === 0) {
     return (
@@ -153,23 +154,58 @@ export default function CartPage() {
 
         {/* Bill Details */}
         <div className="bg-white mt-2 p-4 border-y border-gray-100 mb-6">
-          <h3 className="font-bold text-sm text-gray-900 mb-4">Bill Details</h3>
+          <h3 className="font-bold text-sm text-gray-900 mb-3">Bill Details</h3>
+
+          {/* Smart customer message */}
+          {cartTotal < 100 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4 flex items-start gap-2">
+              <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+              <p className="text-xs text-amber-800 font-medium leading-snug">
+                Add ₹{100 - cartTotal} more to remove the Small Cart Fee.
+              </p>
+            </div>
+          )}
+          {cartTotal >= 100 && cartTotal < 150 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 mb-4 flex items-start gap-2">
+              <span className="text-blue-500 text-base leading-none mt-0.5">🚚</span>
+              <p className="text-xs text-blue-800 font-medium leading-snug">
+                Add ₹{150 - cartTotal} more to get FREE delivery.
+              </p>
+            </div>
+          )}
+          {cartTotal >= 150 && (
+            <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 mb-4 flex items-start gap-2">
+              <span className="text-base leading-none mt-0.5">🎉</span>
+              <p className="text-xs text-green-800 font-medium leading-snug">
+                Congratulations! You have unlocked FREE delivery.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-3 text-sm">
             <div className="flex justify-between text-gray-600">
-              <span>Item Total</span>
+              <span>Items Total</span>
               <span>₹{cartTotal}</span>
             </div>
+            {smallCartFee > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span className="flex items-center gap-1.5">
+                  Small Cart Fee
+                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">below ₹100</span>
+                </span>
+                <span>₹{smallCartFee}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-600">
               <span>Delivery Fee</span>
-              <span className={DELIVERY_FEE === 0 ? "text-green-600 font-medium" : ""}>
-                {DELIVERY_FEE === 0 ? "FREE" : `₹${DELIVERY_FEE}`}
+              <span className={deliveryFee === 0 ? 'text-green-600 font-semibold' : ''}>
+                {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
               </span>
             </div>
-            {DELIVERY_FEE === 20 && (
-              <p className="text-xs text-primary bg-primary/10 p-2 rounded text-center">
-                Add items worth ₹{299 - cartTotal} more to get FREE delivery
-              </p>
-            )}
+            <div className="flex justify-between text-gray-600">
+              <span>Handling &amp; Packaging Fee</span>
+              <span>₹{HANDLING_FEE}</span>
+            </div>
             <div className="border-t border-dashed border-gray-200 pt-3 flex justify-between font-bold text-base text-gray-900">
               <span>Grand Total</span>
               <span>₹{grandTotal}</span>
@@ -180,13 +216,9 @@ export default function CartPage() {
 
       {/* Sticky Checkout Bar */}
       <div className="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto bg-white p-4 border-t border-gray-100 z-50">
-        {!meetsMinOrder && (
-          <p className="text-xs text-red-500 text-center mb-2 font-medium">Minimum order value is ₹{MIN_ORDER}. Add ₹{MIN_ORDER - cartTotal} more.</p>
-        )}
-        <button 
+        <button
           onClick={() => setLocation('/checkout')}
-          disabled={!meetsMinOrder}
-          className={`w-full flex items-center justify-between p-4 rounded-xl text-white font-bold transition-transform ${meetsMinOrder ? 'bg-primary active:scale-[0.98]' : 'bg-gray-300 cursor-not-allowed'}`}
+          className="w-full flex items-center justify-between p-4 rounded-xl text-white font-bold transition-transform bg-primary active:scale-[0.98]"
         >
           <div className="flex flex-col items-start">
             <span className="text-xs text-white/80 font-normal">₹{grandTotal}</span>
