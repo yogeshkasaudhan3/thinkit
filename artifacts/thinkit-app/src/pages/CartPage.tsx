@@ -4,6 +4,7 @@ import { ShoppingCart, Plus, Minus, Trash2, ChevronRight, FileText, IndianRupee 
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { useApp } from '../context/AppContext';
+import CartRecommendations from '../components/CartRecommendations';
 
 export default function CartPage() {
   const [, setLocation] = useLocation();
@@ -212,6 +213,9 @@ export default function CartPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Smart Recommendations ───────────────────────────────────────────── */}
+        <CartRecommendations cartTotal={cartTotal} />
       </div>
 
       {/* Sticky Checkout Bar */}
