@@ -1,9 +1,16 @@
 import { Router, type IRouter } from "express";
+import bcrypt from "bcryptjs";
 import { AdminLoginBody } from "@workspace/api-zod";
 import { requireAdmin } from "../../middleware/requireAdmin";
 
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+
+if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
+  throw new Error(
+    "ADMIN_USERNAME and ADMIN_PASSWORD_HASH environment variables must be set"
+  );
+}
 
 const router: IRouter = Router();
 
@@ -16,7 +23,12 @@ router.post("/admin/login", async (req, res): Promise<void> => {
 
   const { username, password } = parsed.data;
 
-  if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+  const usernameMatch = username === ADMIN_USERNAME;
+  const passwordMatch = usernameMatch
+    ? await bcrypt.compare(password, ADMIN_PASSWORD_HASH!)
+    : false;
+
+  if (!usernameMatch || !passwordMatch) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
@@ -28,7 +40,7 @@ router.post("/admin/login", async (req, res): Promise<void> => {
       res.status(500).json({ error: "Login failed" });
       return;
     }
-    req.session.adminId = ADMIN_USERNAME;
+    req.session.adminId = ADMIN_USERNAME!;
     res.json({ username: ADMIN_USERNAME });
   });
 });

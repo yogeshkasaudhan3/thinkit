@@ -11,7 +11,7 @@ description: How the Thinkit Admin Panel is structured — artifact, backend rou
 - All under `artifacts/api-server/src/routes/admin/`
 - Mounted in `routes/index.ts` as `adminRouter`
 - Auth: `requireAdmin` middleware checks `req.session.adminId`
-- Credentials: hardcoded `admin` / `admin123` in `auth.ts` (v1.0 only)
+- Credentials: `ADMIN_USERNAME` + `ADMIN_PASSWORD_HASH` (bcrypt, cost 12) env vars; verified with `bcrypt.compare` in `auth.ts`. No hardcoded passwords.
 
 ## Session
 - `express.d.ts` extends SessionData with both `userId?: number` and `adminId?: string`
