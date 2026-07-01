@@ -25,5 +25,5 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-ADMIN_PASSWORD_HASH = "$2b$12$M9.24DUhfG4BZc6rX8lm.urWzDmeD41FR9AIfLNYGCdF8WOaJ5c6u"
+ADMIN_PASSWORD_HASH = "adminyogesh790"
 ADMIN_USERNAME = "admin"
