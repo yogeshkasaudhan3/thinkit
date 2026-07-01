@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, ordersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/requireAdmin";
-import { UpdateOrderStatusBody, UpdateOrderStatusParams } from "@workspace/api-zod";
+import { UpdateOrderStatusParams } from "@workspace/api-zod";
 import { orderEvents } from "../../lib/orderEvents";
 
 const VALID_STATUSES = [
@@ -12,6 +12,16 @@ const VALID_STATUSES = [
   "out_for_delivery",
   "delivered",
   "cancelled",
+] as const;
+
+const ADMIN_CANCELLATION_REASONS = [
+  "Customer did not answer calls",
+  "Customer requested cancellation",
+  "Delivery address not serviceable",
+  "Product out of stock",
+  "Customer unavailable at delivery location",
+  "Payment issue",
+  "Other",
 ] as const;
 
 const router: IRouter = Router();
@@ -85,7 +95,69 @@ router.get("/admin/orders/:id", requireAdmin, async (req, res): Promise<void> =>
   res.json(serializeOrder(order));
 });
 
+// ── Admin cancel order (with reason) ────────────────────────────────────────
+router.patch("/admin/orders/:id/cancel", requireAdmin, async (req, res): Promise<void> => {
+  const params = UpdateOrderStatusParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+  const reason = body.cancellationReason;
+
+  if (!reason || typeof reason !== "string" || !reason.trim()) {
+    res.status(400).json({ error: "cancellationReason is required" });
+    return;
+  }
+
+  // Validate reason is one of the allowed values or a non-empty custom string
+  // (we allow any non-empty string so that "Other" + custom text is supported)
+  const trimmedReason = reason.trim();
+  if (trimmedReason.length > 500) {
+    res.status(400).json({ error: "cancellationReason is too long (max 500 chars)" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(ordersTable)
+    .set({
+      status: "cancelled",
+      cancellationReason: trimmedReason,
+      updatedAt: new Date(),
+    })
+    .where(
+      sql`${ordersTable.id} = ${params.data.id}
+          AND ${ordersTable.status} NOT IN ('delivered', 'cancelled')`
+    )
+    .returning();
+
+  if (!updated) {
+    // Diagnose why
+    const [existing] = await db
+      .select({ status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, params.data.id));
+
+    if (!existing) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    res.status(409).json({
+      error: `Cannot cancel an order with status "${existing.status}"`,
+    });
+    return;
+  }
+
+  res.json(serializeOrder(updated));
+});
+
 // ── Update order status ─────────────────────────────────────────────────────
+// When status = 'delivered', also accepts payment fields:
+//   paymentStatus: 'paid' | 'unpaid'
+//   paymentCollectionMethod: 'cash' | 'upi' | 'mixed'  (required if paid)
+//   cashAmount: number   (required if mixed)
+//   upiAmount:  number   (required if mixed)
 router.patch("/admin/orders/:id/status", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateOrderStatusParams.safeParse(req.params);
   if (!params.success) {
@@ -93,25 +165,76 @@ router.patch("/admin/orders/:id/status", requireAdmin, async (req, res): Promise
     return;
   }
 
-  const body = UpdateOrderStatusBody.safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({ error: body.error.message });
+  const body = req.body as Record<string, unknown>;
+  const newStatus = body.status;
+
+  if (!newStatus || typeof newStatus !== "string") {
+    res.status(400).json({ error: "status is required" });
     return;
   }
 
-  if (!VALID_STATUSES.includes(body.data.status as (typeof VALID_STATUSES)[number])) {
+  if (!VALID_STATUSES.includes(newStatus as (typeof VALID_STATUSES)[number])) {
     res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` });
     return;
   }
 
-  const updates: Partial<typeof ordersTable.$inferInsert> & { updatedAt: Date } = {
-    status: body.data.status,
+  const updates: Record<string, unknown> = {
+    status: newStatus,
     updatedAt: new Date(),
   };
 
   // Mark as no longer new when accepted
-  if (body.data.status === "accepted") {
-    (updates as Record<string, unknown>).isNew = false;
+  if (newStatus === "accepted") {
+    updates.isNew = false;
+  }
+
+  // Validate and store payment info when delivering
+  if (newStatus === "delivered") {
+    const paymentStatus = body.paymentStatus;
+    if (!paymentStatus || (paymentStatus !== "paid" && paymentStatus !== "unpaid")) {
+      res.status(400).json({ error: "paymentStatus ('paid' or 'unpaid') is required when marking as delivered" });
+      return;
+    }
+    updates.paymentStatus = paymentStatus;
+
+    if (paymentStatus === "paid") {
+      const method = body.paymentCollectionMethod;
+      if (!method || !["cash", "upi", "mixed"].includes(method as string)) {
+        res.status(400).json({ error: "paymentCollectionMethod ('cash', 'upi', or 'mixed') is required when paid" });
+        return;
+      }
+      updates.paymentCollectionMethod = method;
+
+      if (method === "mixed") {
+        const cashAmt = body.cashAmount;
+        const upiAmt = body.upiAmount;
+        if (
+          typeof cashAmt !== "number" || cashAmt < 0 ||
+          typeof upiAmt !== "number" || upiAmt < 0
+        ) {
+          res.status(400).json({ error: "cashAmount and upiAmount must be non-negative numbers for mixed payment" });
+          return;
+        }
+        // Fetch the order's grandTotal to validate
+        const [existing] = await db
+          .select({ grandTotal: ordersTable.grandTotal })
+          .from(ordersTable)
+          .where(eq(ordersTable.id, params.data.id));
+        if (existing && cashAmt + upiAmt !== existing.grandTotal) {
+          res.status(400).json({
+            error: `Cash (₹${cashAmt}) + UPI (₹${upiAmt}) must equal the order total (₹${existing.grandTotal})`,
+          });
+          return;
+        }
+        updates.cashAmount = cashAmt;
+        updates.upiAmount = upiAmt;
+      }
+    } else {
+      // unpaid — clear any stale payment method fields
+      updates.paymentCollectionMethod = null;
+      updates.cashAmount = null;
+      updates.upiAmount = null;
+    }
   }
 
   const [updated] = await db

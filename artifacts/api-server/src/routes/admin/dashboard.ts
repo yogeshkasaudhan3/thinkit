@@ -9,11 +9,18 @@ router.get("/admin/dashboard", requireAdmin, async (req, res): Promise<void> => 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Aggregate stats in a single query
+  // Aggregate stats in a single query.
+  // todaySales: only delivered + paid orders count as revenue (never cancelled, never unpaid).
   const [stats] = await db
     .select({
       todayOrders: sql<string>`COUNT(*) FILTER (WHERE ${ordersTable.createdAt} >= ${today.toISOString()}::timestamptz)`,
-      todaySales: sql<string>`COALESCE(SUM(${ordersTable.grandTotal}) FILTER (WHERE ${ordersTable.createdAt} >= ${today.toISOString()}::timestamptz), 0)`,
+      todaySales: sql<string>`COALESCE(
+        SUM(${ordersTable.grandTotal}) FILTER (
+          WHERE ${ordersTable.createdAt} >= ${today.toISOString()}::timestamptz
+            AND ${ordersTable.status} = 'delivered'
+            AND ${ordersTable.paymentStatus} = 'paid'
+        ), 0
+      )`,
       pendingOrders: sql<string>`COUNT(*) FILTER (WHERE ${ordersTable.status} IN ('new', 'accepted', 'packing'))`,
       outForDelivery: sql<string>`COUNT(*) FILTER (WHERE ${ordersTable.status} = 'out_for_delivery')`,
     })

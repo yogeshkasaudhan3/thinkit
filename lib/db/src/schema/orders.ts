@@ -22,6 +22,16 @@ export const ordersTable = pgTable("orders", {
   // status: new | accepted | packing | out_for_delivery | delivered | cancelled
   status: text("status").notNull().default("new"),
   isNew: boolean("is_new").notNull().default(true),
+  // Admin cancellation reason (set when admin cancels)
+  cancellationReason: text("cancellation_reason"),
+  // Payment collection (set when admin marks as delivered)
+  // paymentStatus: paid | unpaid
+  paymentStatus: text("payment_status"),
+  // paymentCollectionMethod: cash | upi | mixed
+  paymentCollectionMethod: text("payment_collection_method"),
+  // For mixed payments: how much was cash vs UPI
+  cashAmount: integer("cash_amount"),
+  upiAmount: integer("upi_amount"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

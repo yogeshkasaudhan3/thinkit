@@ -1,0 +1,187 @@
+Implement the following critical improvements in Thinkit v1.0 Admin Panel and Customer App.
+
+==================================================
+1. ADMIN ORDER CANCELLATION WITH REASON
+==================================================
+
+Current Problem:
+Admin cannot cancel orders.
+
+Requirements:
+
+Add a "Cancel Order" button in the Admin Panel.
+
+When Admin clicks Cancel Order:
+
+Show a popup:
+
+Cancel Order
+
+Select Reason:
+
+- Customer did not answer calls
+- Customer requested cancellation
+- Delivery address not serviceable
+- Product out of stock
+- Customer unavailable at delivery location
+- Payment issue
+- Other (with custom text input)
+
+After confirmation:
+
+- Order status should become: Cancelled
+- Cancellation reason must be saved in the database.
+
+==================================================
+2. CUSTOMER APP CANCELLATION MESSAGE
+==================================================
+
+If Admin cancels an order, the customer must see:
+
+Order Cancelled
+
+Reason:
+"Customer did not answer calls"
+
+or any other selected reason.
+
+This should appear in:
+
+- Order Details Page
+- Order History Page
+
+==================================================
+3. CANCELLED ORDERS MUST NOT COUNT AS SALES
+==================================================
+
+Current Problem:
+If a customer places an order and later cancels it, the order amount is still added to Today's Sales.
+
+Fix:
+
+Only DELIVERED orders should be included in:
+
+- Today's Sales
+- Revenue
+- Dashboard statistics
+
+Cancelled orders must NEVER contribute to sales.
+
+==================================================
+4. PAYMENT COLLECTION SYSTEM
+==================================================
+
+Current Problem:
+After delivery, there is no way to record whether payment was received.
+
+Requirements:
+
+When Admin clicks "Mark as Delivered":
+
+Show a popup:
+
+Payment Collection
+
+Payment Status:
+( ) Paid
+( ) Unpaid
+
+If Paid is selected:
+
+Payment Method:
+
+( ) Cash
+( ) UPI
+( ) Mixed (Cash + UPI)
+
+==================================================
+5. MIXED PAYMENT SUPPORT
+==================================================
+
+If Mixed is selected:
+
+Show:
+
+Cash Amount: ₹____
+
+UPI Amount: ₹____
+
+Validation:
+
+Cash + UPI must equal the total order amount.
+
+Example:
+
+Order Total = ₹500
+
+Cash = ₹200
+UPI = ₹300
+
+Valid.
+
+==================================================
+6. PAYMENT DETAILS IN ADMIN PANEL
+==================================================
+
+For delivered orders, show:
+
+Payment Status:
+Paid / Unpaid
+
+Payment Method:
+Cash / UPI / Mixed
+
+Example:
+
+Paid via UPI
+
+or
+
+Paid via Mixed
+Cash: ₹200
+UPI: ₹300
+
+==================================================
+7. PAYMENT DETAILS IN CUSTOMER APP
+==================================================
+
+Customers should also see:
+
+Payment Status:
+Paid
+
+Payment Method:
+UPI
+
+or
+
+Mixed Payment:
+Cash ₹200
+UPI ₹300
+
+==================================================
+8. DASHBOARD IMPROVEMENTS
+==================================================
+
+Today's Sales must only include:
+
+Status = Delivered
+AND
+Payment Status = Paid
+
+Cancelled, pending, packing, or unpaid orders must not be counted as revenue.
+
+==================================================
+IMPORTANT:
+
+Do not change the existing UI design.
+
+Only add:
+
+- Admin order cancellation with reasons
+- Customer cancellation reason display
+- Correct sales calculations
+- Payment collection system
+- Cash/UPI/Mixed payment support
+
+These features are mandatory for Thinkit v1.0 production launch.

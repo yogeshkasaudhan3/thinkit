@@ -10,6 +10,8 @@ import {
   ShoppingCart,
   Loader2,
   AlertCircle,
+  CreditCard,
+  Banknote,
 } from 'lucide-react';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
@@ -49,6 +51,13 @@ interface Order {
   address: OrderAddress;
   createdAt: string;
   updatedAt: string;
+  // Cancellation
+  cancellationReason?: string | null;
+  // Payment collection (set after delivery)
+  paymentStatus?: 'paid' | 'unpaid' | null;
+  paymentCollectionMethod?: 'cash' | 'upi' | 'mixed' | null;
+  cashAmount?: number | null;
+  upiAmount?: number | null;
 }
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -93,6 +102,40 @@ function formatDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
     ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ── Payment info component ────────────────────────────────────────────────────
+
+function PaymentDetail({ order }: { order: Order }) {
+  if (!order.paymentStatus) return null;
+
+  if (order.paymentStatus === 'unpaid') {
+    return (
+      <div className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-orange-600 bg-orange-50 rounded-lg px-3 py-2">
+        <Banknote size={13} />
+        Payment Unpaid
+      </div>
+    );
+  }
+
+  if (order.paymentCollectionMethod === 'mixed') {
+    return (
+      <div className="mt-2 text-xs bg-green-50 text-green-700 rounded-lg px-3 py-2 space-y-0.5">
+        <div className="font-semibold flex items-center gap-1.5">
+          <CreditCard size={13} />
+          Mixed Payment
+        </div>
+        <div className="pl-5 text-green-600">Cash ₹{order.cashAmount} · UPI ₹{order.upiAmount}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-green-700 bg-green-50 rounded-lg px-3 py-2">
+      <CreditCard size={13} />
+      Paid via {order.paymentCollectionMethod === 'cash' ? 'Cash' : 'UPI'}
+    </div>
+  );
 }
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
@@ -412,6 +455,7 @@ function ActiveOrderCard({
 function HistoryOrderCard({ order, onReorder }: { order: Order; onReorder: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const delivered = order.status === 'delivered';
+  const cancelled = order.status === 'cancelled';
 
   return (
     <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3">
@@ -429,6 +473,20 @@ function HistoryOrderCard({ order, onReorder }: { order: Order; onReorder: () =>
         </div>
         <p className="font-bold text-gray-900">₹{order.grandTotal}</p>
       </div>
+
+      {/* Cancellation reason (if admin cancelled) */}
+      {cancelled && order.cancellationReason && (
+        <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
+          <p className="text-xs font-semibold text-red-600 flex items-center gap-1 mb-0.5">
+            <Clock size={11} />
+            Cancellation Reason
+          </p>
+          <p className="text-xs text-red-700">{order.cancellationReason}</p>
+        </div>
+      )}
+
+      {/* Payment info (for delivered orders) */}
+      {delivered && <PaymentDetail order={order} />}
 
       {/* Items summary / expanded */}
       <button
