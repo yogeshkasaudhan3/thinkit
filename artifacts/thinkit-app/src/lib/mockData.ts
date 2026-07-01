@@ -61,9 +61,9 @@ export const PRODUCTS: Product[] = [
 ];
 
 export const BANNER_SLIDES = [
-  { id: 'b1', title: 'Fresh Dairy', subtitle: 'Delivered in 10 mins', bg: 'bg-gradient-to-r from-blue-400 to-blue-600', textColor: 'text-white' },
-  { id: 'b2', title: 'Mega Savings', subtitle: 'Up to 50% OFF on Snacks', bg: 'bg-gradient-to-r from-orange-400 to-red-500', textColor: 'text-white' },
-  { id: 'b3', title: 'Daily Essentials', subtitle: 'Stock up your pantry', bg: 'bg-gradient-to-r from-green-500 to-[#1B4D2E]', textColor: 'text-white' },
+  { id: 'b1', title: 'Fresh Dairy', subtitle: 'Delivered in 10 mins', bg: 'bg-gradient-to-r from-blue-400 to-blue-600', textColor: 'text-white', btnStyle: 'default' as const },
+  { id: 'b2', title: '🎉 Thinkit Grand Launch', subtitle: 'Free Delivery Above ₹299', bg: 'bg-gradient-to-br from-[#063d28] via-[#0B5D3B] to-[#1a5c36]', textColor: 'text-white', btnStyle: 'gold' as const },
+  { id: 'b3', title: 'Daily Essentials', subtitle: 'Stock up your pantry', bg: 'bg-gradient-to-r from-green-500 to-[#1B4D2E]', textColor: 'text-white', btnStyle: 'default' as const },
 ];
 
 export const ORDERS = [
