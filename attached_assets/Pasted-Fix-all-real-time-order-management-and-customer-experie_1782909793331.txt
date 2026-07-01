@@ -1,0 +1,177 @@
+Fix all real-time order management and customer experience issues in Thinkit v1.0.
+
+==================================================
+1. REAL-TIME ORDER UPDATES
+==================================================
+
+Current Problem:
+The Admin Panel only shows new orders after manually refreshing the page.
+
+Required Fix:
+
+- New orders must appear automatically without refreshing.
+- Dashboard statistics should update in real time.
+- Use polling every 3-5 seconds or real-time subscriptions.
+- No manual refresh should be required.
+
+==================================================
+2. NEW ORDER NOTIFICATION SOUND
+==================================================
+
+Current Problem:
+No notification sound is played when a new order arrives.
+
+Required Fix:
+
+- Play a loud notification sound immediately when a new order is received.
+- The sound must continue in a loop until the admin clicks "Accept Order".
+- Show a popup:
+
+NEW ORDER RECEIVED
+
+Customer Name
+Order Amount
+
+Buttons:
+- Accept Order
+- View Order
+
+The alarm must stop only after Accept Order is pressed.
+
+==================================================
+3. INSTANT STATUS UPDATES IN ADMIN PANEL
+==================================================
+
+Current Problem:
+After clicking Accept Order or changing status, I must go back and reopen the page to see the updated status.
+
+Required Fix:
+
+- Status updates must happen instantly without navigation.
+- The UI should refresh automatically after every action.
+
+Example:
+
+New Order
+↓
+Accept Order
+↓
+Status immediately changes to Accepted
+
+Accepted
+↓
+Packing
+↓
+Status immediately changes to Packing
+
+No manual refresh or back navigation should be required.
+
+==================================================
+4. CUSTOMER APP REAL-TIME ORDER STATUS
+==================================================
+
+Current Problem:
+The customer app also requires manual refresh to see updated statuses.
+
+Required Fix:
+
+- Customer order status must update automatically.
+- No page refresh should be needed.
+
+Flow:
+
+Placed
+↓
+Accepted
+↓
+Packing
+↓
+Out For Delivery
+↓
+Delivered
+
+All updates should appear automatically.
+
+==================================================
+5. CUSTOMER ORDER CANCELLATION
+==================================================
+
+Current Problem:
+Customers cannot cancel orders.
+
+Required Fix:
+
+Add a "Cancel Order" button.
+
+Rules:
+
+- Customers can cancel only if the order status is:
+  - New Order
+  - Accepted
+
+- Customers cannot cancel if the order is:
+  - Packing
+  - Out For Delivery
+  - Delivered
+
+Show confirmation:
+
+"Are you sure you want to cancel this order?"
+
+After cancellation:
+
+- Admin Panel should instantly show:
+  Status = Cancelled
+
+==================================================
+6. ORDER HISTORY
+==================================================
+
+Current Problem:
+Order history is not visible.
+
+Required Fix:
+
+Create a complete Order History section.
+
+Customers should see:
+
+- Previous Orders
+- Order Date
+- Order Amount
+- Order Status
+- Ordered Products
+
+Add:
+
+"Reorder" button
+
+which adds all previous items back into the cart.
+
+==================================================
+7. ADMIN ORDER HISTORY
+==================================================
+
+Create separate tabs:
+
+- Active Orders
+- Completed Orders
+- Cancelled Orders
+
+Admin should be able to filter orders easily.
+
+==================================================
+8. IMPORTANT REQUIREMENTS
+==================================================
+
+Do NOT change the existing UI design.
+
+Only improve:
+
+- Real-time synchronization
+- Notification sounds
+- Status updates
+- Order cancellation
+- Order history
+
+The application should feel as smooth and responsive as Blinkit and Zepto.

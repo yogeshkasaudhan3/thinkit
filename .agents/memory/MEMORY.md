@@ -5,3 +5,4 @@
 - [Orval hook query options](orval-query-options.md) — generated hooks require full UseQueryOptions (including queryKey); always pass getGet*QueryKey() helper when passing query options
 - [useProducts cache pattern](useproducts-cache.md) — module-level subscriber cache; TTL 5 min; invalidateProductsCache() for admin-triggered refresh; Fuse engine via useMemo per component
 - [Order creation security](order-creation-security.md) — POST /api/orders recomputes all prices from DB; never trust client totals; zod not available in api-server (no dep), use hand-written guards
+- [Real-time orders pattern](realtime-orders.md) — admin: 5s polling on useListAdminOrders, 3s on useGetAdminOrder; customer: 5s setInterval in useOrders hook; cancel is atomic WHERE clause (no read-then-write race)

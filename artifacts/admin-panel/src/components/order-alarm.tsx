@@ -15,13 +15,11 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Volume2, AlertCircle, ShoppingBag } from 'lucide-react';
+import { Volume2, AlertCircle, ShoppingBag, Eye } from 'lucide-react';
 
 export function OrderAlarm() {
   const [newOrder, setNewOrder] = useState<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const oscillatorRef = useRef<OscillatorNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const queryClient = useQueryClient();
@@ -33,34 +31,28 @@ export function OrderAlarm() {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
+    if (ctx.state === 'suspended') ctx.resume();
 
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    const playBeep = () => {
+    const playBeep = (delay = 0) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
       osc.type = 'square';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
-      
-      gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      
+      osc.frequency.setValueAtTime(880, ctx.currentTime + delay);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + delay + 0.15);
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + delay + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + 0.5);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.6);
     };
 
     intervalRef.current = setInterval(() => {
-      playBeep();
-      setTimeout(playBeep, 200);
+      playBeep(0);
+      playBeep(0.25);
     }, 1000);
   };
 
@@ -71,6 +63,11 @@ export function OrderAlarm() {
     }
   };
 
+  const dismissOrder = () => {
+    stopAlarm();
+    setNewOrder(null);
+  };
+
   useEffect(() => {
     const sse = new EventSource('/api/admin/orders/stream');
     
@@ -79,8 +76,6 @@ export function OrderAlarm() {
         const orderData = JSON.parse(e.data);
         setNewOrder(orderData);
         startAlarm();
-        
-        // Invalidate queries to refresh dashboard and order lists
         queryClient.invalidateQueries({ queryKey: getListAdminOrdersQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetAdminDashboardQueryKey() });
       } catch (err) {
@@ -88,8 +83,8 @@ export function OrderAlarm() {
       }
     });
 
-    sse.onerror = (e) => {
-      console.error('SSE Error:', e);
+    sse.onerror = () => {
+      // SSE will auto-reconnect; suppress console noise
     };
 
     return () => {
@@ -100,11 +95,9 @@ export function OrderAlarm() {
 
   const handleAccept = () => {
     if (!newOrder) return;
-    
     updateStatus({ id: newOrder.id, data: { status: 'accepted' } }, {
       onSuccess: () => {
-        stopAlarm();
-        setNewOrder(null);
+        dismissOrder();
         queryClient.invalidateQueries({ queryKey: getListAdminOrdersQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetAdminDashboardQueryKey() });
       }
@@ -113,36 +106,43 @@ export function OrderAlarm() {
 
   const handleView = () => {
     if (!newOrder) return;
-    setLocation(`/orders`);
-    // Alarm keeps playing until accepted
+    // Navigate to this specific order in the slide-over, then dismiss dialog
+    setLocation(`/orders?id=${newOrder.id}`);
+    dismissOrder();
   };
 
   return (
-    <Dialog open={!!newOrder} onOpenChange={(open) => !open && stopAlarm()}>
-      <DialogContent className="sm:max-w-md border-destructive/50 shadow-destructive/20 border-2">
+    // onOpenChange is intentionally a no-op: the alarm can only be stopped by
+    // pressing "Accept Order". Pressing Escape or clicking outside does nothing.
+    <Dialog open={!!newOrder} onOpenChange={() => {}}>
+      <DialogContent
+        className="sm:max-w-md border-destructive/50 shadow-destructive/20 border-2"
+        // Remove the built-in close (×) button so it's not accidentally dismissed
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5 animate-pulse" />
             NEW ORDER RECEIVED
           </DialogTitle>
           <DialogDescription>
-            You have a new order that requires your attention.
+            A new order is waiting. Accept it to stop the alarm.
           </DialogDescription>
         </DialogHeader>
         
         {newOrder && (
           <div className="bg-muted p-4 rounded-md space-y-3">
             <div className="flex justify-between items-center">
-              <span className="font-semibold">{newOrder.customerName}</span>
-              <span className="font-mono text-sm">{newOrder.orderNumber}</span>
+              <span className="font-semibold text-foreground">{newOrder.customerName}</span>
+              <span className="font-mono text-sm text-muted-foreground">{newOrder.orderNumber}</span>
             </div>
-            
-            <div className="text-2xl font-bold text-primary">
+            <div className="text-3xl font-bold text-primary">
               ₹{newOrder.grandTotal}
             </div>
-            
             <div className="text-sm text-muted-foreground">
-              {newOrder.items?.length || 0} items
+              {newOrder.items?.length || 0} item{newOrder.items?.length !== 1 ? 's' : ''} •{' '}
+              {newOrder.paymentMethod?.toUpperCase() ?? 'COD'}
             </div>
           </div>
         )}
@@ -150,13 +150,19 @@ export function OrderAlarm() {
         <DialogFooter className="sm:justify-between flex-row items-center gap-2 pt-4">
           <div className="flex items-center text-xs text-muted-foreground gap-1.5 font-medium">
             <Volume2 className="h-4 w-4 animate-pulse text-destructive" />
-            Alarm playing
+            Alarm active
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleView} disabled={isPending}>
-              View Orders
+              <Eye className="mr-2 h-4 w-4" />
+              View Order
             </Button>
-            <Button variant="default" onClick={handleAccept} disabled={isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button
+              variant="default"
+              onClick={handleAccept}
+              disabled={isPending}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
               <ShoppingBag className="mr-2 h-4 w-4" />
               Accept Order
             </Button>

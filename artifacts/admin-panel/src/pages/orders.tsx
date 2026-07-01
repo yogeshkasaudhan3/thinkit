@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   useListAdminOrders, 
   useUpdateOrderStatus,
@@ -9,8 +9,6 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { 
-  Search, 
-  Filter, 
   Loader2, 
   ShoppingBag, 
   MapPin, 
@@ -22,36 +20,78 @@ import {
   Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
-  SheetDescription,
-  SheetFooter,
 } from '@/components/ui/sheet';
 import { useLocation } from 'wouter';
 
+// ── Status helpers ────────────────────────────────────────────────────────────
+
+const ACTIVE_STATUSES = ['new', 'accepted', 'packing', 'out_for_delivery'];
+
+function statusLabel(status: string) {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cls = {
+    new:              'bg-destructive/10 text-destructive border-destructive/20 animate-pulse',
+    accepted:         'bg-blue-500/10 text-blue-600 border-blue-500/20',
+    packing:          'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    out_for_delivery: 'bg-accent/20 text-accent-foreground border-accent/30',
+    delivered:        'bg-primary/10 text-primary border-primary/20',
+    cancelled:        'bg-muted text-muted-foreground border-border',
+  }[status] ?? 'bg-muted text-muted-foreground border-border';
+  return (
+    <Badge variant="outline" className={cls}>
+      {statusLabel(status)}
+    </Badge>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function Orders() {
   const [location, setLocation] = useLocation();
-  const searchParams = new URLSearchParams(window.location.search);
-  const initialId = searchParams.get('id');
-  
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(initialId ? parseInt(initialId, 10) : null);
-  
-  // When search params change, update selected order
+  const [mainTab, setMainTab] = useState<'active' | 'completed' | 'cancelled'>('active');
+  const [activeSubFilter, setActiveSubFilter] = useState<string>('all');
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+
+  // Parse ?id= from URL on mount and location changes
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
-    if (id) setSelectedOrderId(parseInt(id, 10));
+    setSelectedOrderId(id ? parseInt(id, 10) : null);
   }, [location]);
 
-  const { data: orders = [], isLoading } = useListAdminOrders(
-    statusFilter !== 'all' ? { status: statusFilter } : {}
-  );
+  // Fetch all orders with 5-second polling for real-time updates
+  const { data: allOrders = [], isLoading } = useListAdminOrders({}, {
+    query: {
+      queryKey: getListAdminOrdersQueryKey(),
+      refetchInterval: 5000,
+    }
+  });
+
+  const activeOrders = allOrders.filter(o => ACTIVE_STATUSES.includes(o.status));
+  const completedOrders = allOrders.filter(o => o.status === 'delivered');
+  const cancelledOrders = allOrders.filter(o => o.status === 'cancelled');
+
+  const filteredActive = activeSubFilter === 'all'
+    ? activeOrders
+    : activeOrders.filter(o => o.status === activeSubFilter);
+
+  const displayOrders =
+    mainTab === 'active'    ? filteredActive   :
+    mainTab === 'completed' ? completedOrders  :
+                              cancelledOrders;
+
+  const openOrder = (id: number) => {
+    setSelectedOrderId(id);
+    setLocation(`/orders?id=${id}`, { replace: true });
+  };
 
   return (
     <div className="space-y-6 flex flex-col h-[calc(100vh-8rem)]">
@@ -60,30 +100,56 @@ export default function Orders() {
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-sm flex flex-col flex-1 min-h-0">
-        <div className="p-4 border-b border-border shrink-0 flex flex-col sm:flex-row gap-4 justify-between items-center">
-          <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full sm:w-auto">
-            <TabsList className="bg-muted w-full sm:w-auto h-auto flex-wrap justify-start">
-              <TabsTrigger value="all" className="px-3 py-1.5 text-xs sm:text-sm">All</TabsTrigger>
-              <TabsTrigger value="new" className="px-3 py-1.5 text-xs sm:text-sm">New</TabsTrigger>
-              <TabsTrigger value="accepted" className="px-3 py-1.5 text-xs sm:text-sm">Accepted</TabsTrigger>
-              <TabsTrigger value="packing" className="px-3 py-1.5 text-xs sm:text-sm">Packing</TabsTrigger>
-              <TabsTrigger value="out_for_delivery" className="px-3 py-1.5 text-xs sm:text-sm">Out for Delivery</TabsTrigger>
-              <TabsTrigger value="delivered" className="px-3 py-1.5 text-xs sm:text-sm">Delivered</TabsTrigger>
-              <TabsTrigger value="cancelled" className="px-3 py-1.5 text-xs sm:text-sm">Cancelled</TabsTrigger>
+        {/* ── Main tabs ── */}
+        <div className="p-4 border-b border-border shrink-0 space-y-3">
+          <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as typeof mainTab)}>
+            <TabsList className="bg-muted w-full sm:w-auto">
+              <TabsTrigger value="active" className="px-4 relative">
+                Active Orders
+                {activeOrders.length > 0 && (
+                  <span className="ml-2 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
+                    {activeOrders.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="completed" className="px-4">
+                Completed
+              </TabsTrigger>
+              <TabsTrigger value="cancelled" className="px-4">
+                Cancelled
+              </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {/* ── Sub-filter (only shown for Active tab) ── */}
+          {mainTab === 'active' && (
+            <Tabs value={activeSubFilter} onValueChange={setActiveSubFilter}>
+              <TabsList className="bg-muted/60 h-auto flex-wrap justify-start">
+                <TabsTrigger value="all"              className="px-3 py-1 text-xs">All Active</TabsTrigger>
+                <TabsTrigger value="new"              className="px-3 py-1 text-xs">New</TabsTrigger>
+                <TabsTrigger value="accepted"         className="px-3 py-1 text-xs">Accepted</TabsTrigger>
+                <TabsTrigger value="packing"          className="px-3 py-1 text-xs">Packing</TabsTrigger>
+                <TabsTrigger value="out_for_delivery" className="px-3 py-1 text-xs">Out for Delivery</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
         </div>
 
+        {/* ── Order table ── */}
         <div className="flex-1 overflow-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : orders.length === 0 ? (
+          ) : displayOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
               <ShoppingBag className="h-12 w-12 mb-4 text-muted-foreground/50" />
               <p className="text-lg font-medium">No orders found</p>
-              <p className="text-sm">There are no orders matching your current filter.</p>
+              <p className="text-sm">
+                {mainTab === 'active'    ? 'No active orders at the moment.' :
+                 mainTab === 'completed' ? 'No delivered orders yet.' :
+                                          'No cancelled orders.'}
+              </p>
             </div>
           ) : (
             <table className="w-full text-sm text-left">
@@ -97,14 +163,11 @@ export default function Orders() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {orders.map((order) => (
-                  <tr 
-                    key={order.id} 
-                    className="hover:bg-muted/30 cursor-pointer transition-colors group"
-                    onClick={() => {
-                      setSelectedOrderId(order.id);
-                      setLocation(`/orders?id=${order.id}`, { replace: true });
-                    }}
+                {displayOrders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="hover:bg-muted/30 cursor-pointer transition-colors"
+                    onClick={() => openOrder(order.id)}
                   >
                     <td className="px-4 py-4">
                       <div className="font-mono text-xs font-semibold text-primary mb-1">{order.orderNumber}</div>
@@ -132,16 +195,7 @@ export default function Orders() {
                       <div className="text-xs text-muted-foreground">{order.paymentMethod.toUpperCase()}</div>
                     </td>
                     <td className="px-4 py-4">
-                      <Badge variant="outline" className={`
-                        ${order.status === 'new' ? 'bg-destructive/10 text-destructive border-destructive/20 animate-pulse' : ''}
-                        ${order.status === 'accepted' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : ''}
-                        ${order.status === 'packing' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' : ''}
-                        ${order.status === 'out_for_delivery' ? 'bg-accent/20 text-accent-foreground border-accent/30' : ''}
-                        ${order.status === 'delivered' ? 'bg-primary/10 text-primary border-primary/20' : ''}
-                        ${order.status === 'cancelled' ? 'bg-muted text-muted-foreground border-border' : ''}
-                      `}>
-                        {order.status.replace(/_/g, ' ').toUpperCase()}
-                      </Badge>
+                      <StatusBadge status={order.status} />
                     </td>
                   </tr>
                 ))}
@@ -151,21 +205,27 @@ export default function Orders() {
         </div>
       </div>
 
-      <OrderSlideOver 
-        orderId={selectedOrderId} 
+      <OrderSlideOver
+        orderId={selectedOrderId}
         onClose={() => {
           setSelectedOrderId(null);
           setLocation('/orders', { replace: true });
-        }} 
+        }}
       />
     </div>
   );
 }
 
-function OrderSlideOver({ orderId, onClose }: { orderId: number | null, onClose: () => void }) {
+// ── Order detail slide-over ───────────────────────────────────────────────────
+
+function OrderSlideOver({ orderId, onClose }: { orderId: number | null; onClose: () => void }) {
   const queryClient = useQueryClient();
   const { data: order, isLoading } = useGetAdminOrder(orderId as number, {
-    query: { queryKey: getGetAdminOrderQueryKey(orderId ?? 0), enabled: !!orderId }
+    query: {
+      queryKey: getGetAdminOrderQueryKey(orderId ?? 0),
+      enabled: !!orderId,
+      refetchInterval: orderId ? 3000 : false,
+    }
   });
   const { mutate: updateStatus, isPending: isUpdating } = useUpdateOrderStatus();
 
@@ -173,9 +233,7 @@ function OrderSlideOver({ orderId, onClose }: { orderId: number | null, onClose:
     if (!orderId) return;
     updateStatus({ id: orderId, data: { status: newStatus } }, {
       onSuccess: (data) => {
-        // Update detail cache
-        queryClient.setQueryData(['/api/admin/orders', orderId], data);
-        // Invalidate list
+        queryClient.setQueryData(getGetAdminOrderQueryKey(orderId), data);
         queryClient.invalidateQueries({ queryKey: getListAdminOrdersQueryKey() });
       }
     });
@@ -228,20 +286,8 @@ function OrderSlideOver({ orderId, onClose }: { orderId: number | null, onClose:
           <>
             <div className="p-6 border-b border-border bg-muted/30">
               <div className="flex items-center justify-between mb-4">
-                <SheetTitle className="text-xl font-bold flex items-center gap-2">
-                  Order Details
-                </SheetTitle>
-                <Badge variant="outline" className={`
-                  text-sm px-3 py-1
-                  ${order.status === 'new' ? 'bg-destructive/10 text-destructive border-destructive/20' : ''}
-                  ${order.status === 'accepted' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : ''}
-                  ${order.status === 'packing' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' : ''}
-                  ${order.status === 'out_for_delivery' ? 'bg-accent/20 text-accent-foreground border-accent/30' : ''}
-                  ${order.status === 'delivered' ? 'bg-primary/10 text-primary border-primary/20' : ''}
-                  ${order.status === 'cancelled' ? 'bg-muted text-muted-foreground border-border' : ''}
-                `}>
-                  {order.status.replace(/_/g, ' ').toUpperCase()}
-                </Badge>
+                <SheetTitle className="text-xl font-bold">Order Details</SheetTitle>
+                <StatusBadge status={order.status} />
               </div>
               <div className="flex justify-between items-end">
                 <div>
@@ -284,22 +330,20 @@ function OrderSlideOver({ orderId, onClose }: { orderId: number | null, onClose:
               )}
 
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3 border-b border-border pb-2">Order Items ({order.items.length})</h4>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3 border-b border-border pb-2">
+                  Order Items ({order.items.length})
+                </h4>
                 <div className="space-y-3">
                   {order.items.map((item, i) => (
                     <div key={i} className="flex justify-between items-start text-sm">
                       <div className="flex gap-3">
-                        <div className="bg-muted rounded text-xs font-bold px-2 py-1 h-fit shrink-0">
-                          {item.qty}x
-                        </div>
+                        <div className="bg-muted rounded text-xs font-bold px-2 py-1 h-fit shrink-0">{item.qty}x</div>
                         <div>
                           <div className="font-medium">{item.name}</div>
                           <div className="text-xs text-muted-foreground">{item.brand} • {item.weight}</div>
                         </div>
                       </div>
-                      <div className="font-medium text-right shrink-0">
-                        ₹{item.price * item.qty}
-                      </div>
+                      <div className="font-medium text-right shrink-0">₹{item.price * item.qty}</div>
                     </div>
                   ))}
                 </div>

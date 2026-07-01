@@ -1,17 +1,18 @@
 /**
- * Customer-facing order creation route.
- * POST /api/orders — requires customer session (requireAuth).
+ * Customer-facing order routes.
+ *
+ * POST   /orders          — place a new order (requireAuth)
+ * GET    /orders          — list current user's orders (requireAuth)
+ * PATCH  /orders/:id/cancel — cancel own order (requireAuth; only new/accepted)
  *
  * ─── Price integrity ────────────────────────────────────────────────────────
- * The server fetches authoritative prices from the products table and
- * recomputes all totals independently. Client-supplied prices and totals
- * are accepted for logging purposes but are NOT persisted — only server-
- * computed values are written to the database.
+ * POST /orders fetches authoritative prices from the products table and
+ * recomputes all totals server-side. Client-supplied prices are ignored.
  * ───────────────────────────────────────────────────────────────────────────
  */
 import { Router, type IRouter } from "express";
 import { db, ordersTable, addressesTable, productsTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { requireAuth, type AuthUser } from "../middleware/requireAuth";
 import { orderEvents } from "../lib/orderEvents";
 
@@ -36,7 +37,6 @@ interface RawItem {
 }
 
 interface CreateOrderBody {
-  /** Only productId + qty are trusted; price is ignored. */
   items: RawItem[];
   paymentMethod?: string;
   orderNote?: string;
@@ -99,7 +99,73 @@ function serializeOrder(o: Record<string, unknown>) {
   };
 }
 
-// ── POST /api/orders ──────────────────────────────────────────────────────────
+// ── GET /orders — customer's own order history ────────────────────────────────
+
+router.get("/orders", requireAuth, async (req, res): Promise<void> => {
+  const user = res.locals.user as AuthUser;
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.customerId, user.id))
+    .orderBy(sql`${ordersTable.createdAt} DESC`)
+    .limit(200);
+
+  res.json(orders.map(serializeOrder));
+});
+
+// ── PATCH /orders/:id/cancel — customer cancels own order ─────────────────────
+// Atomic: the WHERE clause enforces ownership + cancellable-status in a single
+// UPDATE, eliminating the read-then-write race if an admin changes status between
+// a separate read and write.
+
+router.patch("/orders/:id/cancel", requireAuth, async (req, res): Promise<void> => {
+  const user = res.locals.user as AuthUser;
+
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+
+  // Single atomic UPDATE — only succeeds if the order belongs to this customer
+  // AND is still in a cancellable state (new or accepted).
+  const [updated] = await db
+    .update(ordersTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(
+      sql`${ordersTable.id} = ${id}
+          AND ${ordersTable.customerId} = ${user.id}
+          AND ${ordersTable.status} IN ('new', 'accepted')`
+    )
+    .returning();
+
+  if (!updated) {
+    // No row matched — determine why so we can return a meaningful error.
+    const [existing] = await db
+      .select({ id: ordersTable.id, customerId: ordersTable.customerId, status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id));
+
+    if (!existing) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    if (existing.customerId !== user.id) {
+      res.status(403).json({ error: "Not your order" });
+      return;
+    }
+    // Order exists and belongs to user but wasn't in a cancellable state
+    res.status(409).json({
+      error: "Order cannot be cancelled at this stage. Please contact support.",
+    });
+    return;
+  }
+
+  res.json(serializeOrder(updated as unknown as Record<string, unknown>));
+});
+
+// ── POST /orders — place a new order ─────────────────────────────────────────
 
 router.post("/orders", requireAuth, async (req, res): Promise<void> => {
   const user = res.locals.user as AuthUser;
@@ -119,13 +185,20 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
   }
 
   const dbProducts = await db
-    .select({ id: productsTable.id, name: productsTable.name, brand: productsTable.brand, weight: productsTable.weight, price: productsTable.price, inStock: productsTable.inStock, enabled: productsTable.enabled })
+    .select({
+      id: productsTable.id,
+      name: productsTable.name,
+      brand: productsTable.brand,
+      weight: productsTable.weight,
+      price: productsTable.price,
+      inStock: productsTable.inStock,
+      enabled: productsTable.enabled,
+    })
     .from(productsTable)
     .where(inArray(productsTable.id, productIds));
 
   const productMap = new Map(dbProducts.map((p) => [p.id, p]));
 
-  // Validate every item exists and is purchasable
   for (const raw of rawItems) {
     const id = parseInt(raw.productId, 10);
     const product = productMap.get(id);
@@ -143,18 +216,11 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // ── 2. Build items array with server-authoritative prices ─────────────────
+  // ── 2. Build items with server-authoritative prices ───────────────────────
   const items = rawItems.map((raw) => {
     const id = parseInt(raw.productId, 10);
     const p = productMap.get(id)!;
-    return {
-      productId: String(p.id),
-      name: p.name,
-      brand: p.brand,
-      weight: p.weight,
-      qty: raw.qty,
-      price: p.price, // ← server price, NOT client price
-    };
+    return { productId: String(p.id), name: p.name, brand: p.brand, weight: p.weight, qty: raw.qty, price: p.price };
   });
 
   // ── 3. Compute totals server-side ─────────────────────────────────────────
@@ -165,10 +231,7 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
   const grandTotal = subtotal + smallCartFee + deliveryFee + handlingFee;
 
   // ── 4. Fetch customer address ─────────────────────────────────────────────
-  const [address] = await db
-    .select()
-    .from(addressesTable)
-    .where(eq(addressesTable.userId, user.id));
+  const [address] = await db.select().from(addressesTable).where(eq(addressesTable.userId, user.id));
 
   if (!address) {
     res.status(400).json({ error: "No delivery address on file. Please update your profile." });
@@ -180,12 +243,7 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
     customerId: user.id,
     customerName: user.name,
     customerMobile: user.mobile,
-    address: {
-      houseNumber: address.houseNumber,
-      area: address.area,
-      landmark: address.landmark ?? "",
-      pincode: address.pincode,
-    },
+    address: { houseNumber: address.houseNumber, area: address.area, landmark: address.landmark ?? "", pincode: address.pincode },
     items,
     subtotal,
     smallCartFee,
@@ -209,12 +267,9 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
       break;
     } catch (err: unknown) {
       const isUniqueViolation =
-        typeof err === "object" &&
-        err !== null &&
-        "code" in err &&
+        typeof err === "object" && err !== null && "code" in err &&
         (err as { code?: string }).code === "23505";
-
-      if (isUniqueViolation && attempt < 3) continue; // retry with a fresh random number
+      if (isUniqueViolation && attempt < 3) continue;
       throw err;
     }
   }
@@ -226,7 +281,7 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
 
   const serialized = serializeOrder(inserted);
 
-  // ── 6. Notify admin SSE stream — triggers the New Order alarm ─────────────
+  // ── 6. Notify admin SSE stream ────────────────────────────────────────────
   orderEvents.emit("newOrder", serialized);
 
   res.status(201).json(serialized);
