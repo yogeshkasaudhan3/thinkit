@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import { db, usersTable, addressesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireAuth, type AuthUser } from "../middleware/requireAuth";
 
 const router = Router();
@@ -114,6 +114,44 @@ router.get("/auth/me", requireAuth, async (_req: Request, res: Response): Promis
     user: { id: user.id, name: user.name, mobile: user.mobile },
     address: address ?? null,
   });
+});
+
+// ─── Update Address ───────────────────────────────────────────────────────────
+router.put("/auth/address", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const user = res.locals.user as AuthUser;
+  const { houseNumber, area, landmark, pincode } = req.body as Record<string, string | undefined>;
+
+  if (!houseNumber?.trim() || !area?.trim() || !pincode?.trim()) {
+    res.status(400).json({ error: "houseNumber, area, and pincode are required" });
+    return;
+  }
+  if (!/^\d{6}$/.test(pincode.trim())) {
+    res.status(400).json({ error: "Pincode must be 6 digits" });
+    return;
+  }
+
+  const [updated] = await db
+    .insert(addressesTable)
+    .values({
+      userId: user.id,
+      houseNumber: houseNumber.trim(),
+      area: area.trim(),
+      landmark: (landmark ?? "").trim(),
+      pincode: pincode.trim(),
+    })
+    .onConflictDoUpdate({
+      target: addressesTable.userId,
+      set: {
+        houseNumber: sql`excluded.house_number`,
+        area: sql`excluded.area`,
+        landmark: sql`excluded.landmark`,
+        pincode: sql`excluded.pincode`,
+        updatedAt: sql`now()`,
+      },
+    })
+    .returning();
+
+  res.json({ success: true, address: updated });
 });
 
 // ─── Log Out ──────────────────────────────────────────────────────────────────

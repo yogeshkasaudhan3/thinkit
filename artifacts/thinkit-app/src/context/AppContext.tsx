@@ -41,6 +41,7 @@ interface AppContextType {
   isLoggedIn: boolean;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
+  updateAddress: (addr: Omit<UserAddress, 'id'>) => Promise<void>;
 
   // Backward-compat computed user for existing pages
   user: UserProfile | null;
@@ -112,6 +113,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { refreshAuth(); }, [refreshAuth]);
 
+  const updateAddress = useCallback(async (addr: Omit<UserAddress, 'id'>) => {
+    const res = await fetch('/api/auth/address', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(addr),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error((data as { error?: string }).error ?? 'Failed to update address');
+    }
+    const data = await res.json() as { address: UserAddress };
+    setUserAddress(data.address);
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
@@ -173,7 +189,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        authStatus, authUser, userAddress, isLoggedIn, refreshAuth, logout,
+        authStatus, authUser, userAddress, isLoggedIn, refreshAuth, logout, updateAddress,
         user, setUser,
         cart, addToCart, removeFromCart, updateQty, clearCart, cartTotal, cartCount,
         paymentMethod, setPaymentMethod, orderNote, setOrderNote,
