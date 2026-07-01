@@ -115,7 +115,7 @@ export default function HomePage() {
       <div className="p-4 bg-primary sticky top-[60px] z-40 -mt-1 rounded-b-3xl shadow-sm">
         <div 
           className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3 shadow-inner cursor-text"
-          onClick={() => setLocation('/products/all')}
+          onClick={() => setLocation('/search')}
         >
           <Search size={20} className="text-gray-400" />
           <span className="text-gray-500 text-sm font-medium">Search for "Atta"</span>

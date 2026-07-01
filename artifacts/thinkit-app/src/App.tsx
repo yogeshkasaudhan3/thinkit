@@ -16,6 +16,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import OrdersPage from './pages/OrdersPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import SearchPage from './pages/SearchPage';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ function Router() {
       <Route path="/checkout">{() => <ProtectedRoute component={CheckoutPage} />}</Route>
       <Route path="/orders">{() => <ProtectedRoute component={OrdersPage} />}</Route>
       <Route path="/profile">{() => <ProtectedRoute component={ProfilePage} />}</Route>
+      <Route path="/search">{() => <ProtectedRoute component={SearchPage} />}</Route>
       <Route path="/admin">{() => <ProtectedRoute component={AdminDashboardPage} />}</Route>
       <Route component={NotFound} />
     </Switch>
