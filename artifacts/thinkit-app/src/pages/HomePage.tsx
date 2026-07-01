@@ -131,7 +131,7 @@ export default function HomePage() {
           onClick={() => setLocation('/search')}
         >
           <Search size={20} className="text-gray-400" />
-          <span className="text-gray-400 text-sm">Search for groceries, brands &amp; more...</span>
+          <span className="text-gray-400 text-sm">Search atta, oil, biscuits...</span>
         </div>
       </div>
 
