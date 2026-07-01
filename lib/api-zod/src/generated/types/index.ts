@@ -25,3 +25,5 @@ export * from './orderStatusUpdate';
 export * from './productInput';
 export * from './productUpdate';
 export * from './stockToggle';
+export * from './uploadUrlRequest';
+export * from './uploadUrlResponse';

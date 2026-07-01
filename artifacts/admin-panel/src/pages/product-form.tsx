@@ -19,7 +19,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger 
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Loader2, Save, Trash2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, Trash2, Image as ImageIcon, Upload, X } from 'lucide-react';
+import { useUpload } from '@workspace/object-storage-web';
 import { useToast } from '@/hooks/use-toast';
 
 const CATEGORIES = [
@@ -37,7 +38,7 @@ const productSchema = z.object({
   mrp: z.coerce.number().min(0, 'MRP must be positive'),
   price: z.coerce.number().min(0, 'Price must be positive'),
   weight: z.string().min(1, 'Weight/Size is required (e.g. 500g, 1L)'),
-  imageUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  imageUrl: z.string().optional(),
   stockQty: z.coerce.number().min(0, 'Stock quantity cannot be negative'),
   inStock: z.boolean().default(true),
   enabled: z.boolean().default(true),
@@ -64,6 +65,13 @@ export default function ProductForm() {
   const { mutate: deleteProduct, isPending: isDeleting } = useDeleteAdminProduct();
 
   const isSaving = isCreating || isUpdating;
+
+  const {
+    uploadFile,
+    isUploading,
+    error: uploadError,
+    progress: uploadProgress,
+  } = useUpload();
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -418,37 +426,102 @@ export default function ProductForm() {
           <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
             <div className="p-6 border-b border-border bg-muted/30">
               <h2 className="font-semibold text-lg">Product Image</h2>
-              <p className="text-sm text-muted-foreground">Provide a URL for the product image.</p>
+              <p className="text-sm text-muted-foreground">Upload an image from your computer. Supports JPG, PNG, WebP.</p>
             </div>
             <div className="p-6">
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="flex-1">
-                  <FormField
-                    control={form.control}
-                    name="imageUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Image URL</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://example.com/image.jpg" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+
+                {/* Upload control */}
+                <div className="flex-1 space-y-3">
+                  {/* Hidden form field stores the path */}
+                  <input type="hidden" {...form.register('imageUrl')} />
+
+                  <div className="flex flex-wrap gap-3 items-center">
+                    <label
+                      htmlFor="product-image-upload"
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium cursor-pointer transition-colors
+                        ${isUploading
+                          ? 'border-border bg-muted text-muted-foreground cursor-not-allowed'
+                          : 'border-border bg-background hover:bg-muted text-foreground'
+                        }`}
+                    >
+                      {isUploading ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Uploading… {uploadProgress}%</>
+                      ) : (
+                        <><Upload className="h-4 w-4" /> Choose Image</>
+                      )}
+                    </label>
+
+                    {imageUrlValue && !isUploading && (
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('imageUrl', '', { shouldValidate: true })}
+                        className="inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" /> Remove
+                      </button>
                     )}
+                  </div>
+
+                  <input
+                    id="product-image-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={isUploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';           // reset so same file can be re-selected
+                      if (!file) return;
+                      const result = await uploadFile(file);
+                      if (result) {
+                        form.setValue('imageUrl', `/api/storage${result.objectPath}`, { shouldValidate: true });
+                      }
+                    }}
                   />
+
+                  {uploadError && (
+                    <p className="text-sm text-destructive">{uploadError.message}</p>
+                  )}
+
+                  {imageUrlValue && (
+                    <p className="text-xs text-muted-foreground font-mono truncate max-w-xs">
+                      {imageUrlValue}
+                    </p>
+                  )}
+
+                  {!imageUrlValue && !isUploading && (
+                    <p className="text-xs text-muted-foreground">
+                      No image selected. Products without images will show a placeholder.
+                    </p>
+                  )}
                 </div>
+
+                {/* Preview */}
                 <div className="shrink-0">
                   <label className="mb-2 block text-sm font-medium leading-none">Preview</label>
-                  <div className="h-32 w-32 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden">
+                  <div className="h-32 w-32 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden relative">
                     {imageUrlValue ? (
-                      <img src={imageUrlValue} alt="Preview" className="h-full w-full object-cover" onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                      }} />
-                    ) : null}
-                    <ImageIcon className={`h-8 w-8 text-muted-foreground/50 ${imageUrlValue ? 'hidden' : ''}`} />
+                      <img
+                        key={imageUrlValue}
+                        src={imageUrlValue}
+                        alt="Product preview"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                    )}
+                    {isUploading && (
+                      <div className="absolute inset-0 bg-background/70 flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    )}
                   </div>
                 </div>
+
               </div>
             </div>
           </div>
@@ -457,9 +530,10 @@ export default function ProductForm() {
             <Button type="button" variant="outline" onClick={() => setLocation('/products')} disabled={isSaving}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSaving} className="min-w-[120px]">
-              {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              {isNew ? 'Create Product' : 'Save Changes'}
+            <Button type="submit" disabled={isSaving || isUploading} className="min-w-[120px]">
+              {isUploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading image…</> :
+               isSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{isNew ? 'Creating…' : 'Saving…'}</> :
+               <><Save className="h-4 w-4 mr-2" />{isNew ? 'Create Product' : 'Save Changes'}</>}
             </Button>
           </div>
 
