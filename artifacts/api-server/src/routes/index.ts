@@ -8,6 +8,7 @@ import ordersRouter from "./orders";
 import bannersRouter from "./banners";
 import categoriesRouter from "./categories";
 import settingsRouter from "./settings";
+import vyaparImportRouter from "./admin/vyapar-import";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(categoriesRouter);
 router.use(settingsRouter);
 router.use(adminRouter);
 router.use(storageRouter);
+router.use(vyaparImportRouter);
 
 export default router;

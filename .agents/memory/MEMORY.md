@@ -8,4 +8,5 @@
 - [Real-time orders pattern](realtime-orders.md) — admin: 5s polling on useListAdminOrders, 3s on useGetAdminOrder; customer: 5s setInterval in useOrders hook; cancel is atomic WHERE clause (no read-then-write race)
 - [Order payment & cancellation schema](order-payment-cancellation.md) — 5 new nullable columns on orders table; drizzle-kit push requires TTY so use executeSql directly for ADD COLUMN migrations
 - [Store settings architecture](store-settings.md) — singleton store_settings row; public /api/settings; safeNum() for zero-value parsing; min-order enforced server-side; lib/db needs tsc --build before api-server typecheck
-- [Inventory sync architecture](inventory-sync.md) — Vyapar XLSX → update-only; SheetJS server parse; base64 in JSON (15 MB limit); transaction for 3000+ products; clear base64 before FileReader fires
+- [Inventory sync architecture](inventory-sync.md) — Vyapar XLSX → update-only; SheetJS server parse; base64 in JSON (15 MB limit); transaction for 3000+ products; clear base64 before FileReader fires; 3-tier matching (barcode→exact→normalized); preview endpoint is read-only (no upsert in loadRefData)
+- [Vyapar bulk import](vyapar-bulk-import.md) — POST /api/admin/products/vyapar-import; CSV+XLSX via SheetJS; auto-create categories; upsert products; brand/weight default ""; imageUrl null; categoryId=String(cat.id)
