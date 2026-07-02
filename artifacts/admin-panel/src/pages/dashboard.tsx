@@ -1,14 +1,32 @@
 import { useGetAdminDashboard } from '@workspace/api-client-react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingBag, DollarSign, Clock, Truck, Loader2, ArrowRight } from 'lucide-react';
+import { ShoppingBag, DollarSign, Clock, Truck, Loader2, ArrowRight, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow, isAfter, subHours } from 'date-fns';
+
+interface LastSync {
+  syncedAt: string;
+  productsUpdated: number;
+  outOfStockCount: number;
+  errorCount: number;
+}
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useGetAdminDashboard();
   const [, setLocation] = useLocation();
+
+  const { data: lastSync } = useQuery<LastSync | null>({
+    queryKey: ['/api/admin/inventory-sync/last'],
+    queryFn: () =>
+      fetch('/api/admin/inventory-sync/last', { credentials: 'include' })
+        .then((r) => r.json()),
+    refetchInterval: 60_000,
+  });
+
+  const syncStale = !lastSync || isAfter(subHours(new Date(), 8), new Date(lastSync.syncedAt));
 
   if (isLoading) {
     return (
@@ -157,6 +175,45 @@ export default function Dashboard() {
                 />
               </div>
               <p className="text-xs text-muted-foreground text-right">Target: &lt; 30 mins</p>
+            </div>
+
+            {/* Last Inventory Sync */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Last Inventory Sync</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-primary hover:text-primary"
+                  onClick={() => setLocation('/inventory-sync')}
+                >
+                  Sync now <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </div>
+              <div className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm border ${
+                syncStale
+                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                  : 'bg-primary/5 border-primary/20 text-primary'
+              }`}>
+                {syncStale
+                  ? <AlertTriangle className="h-4 w-4 shrink-0" />
+                  : <CheckCircle className="h-4 w-4 shrink-0" />}
+                <span className="text-xs font-medium">
+                  {lastSync
+                    ? formatDistanceToNow(new Date(lastSync.syncedAt), { addSuffix: true })
+                    : 'Never synced'}
+                </span>
+                {lastSync && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {format(new Date(lastSync.syncedAt), 'h:mm a')}
+                  </span>
+                )}
+              </div>
+              {syncStale && (
+                <p className="text-xs text-amber-700">
+                  ⚠ Inventory not synced recently.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

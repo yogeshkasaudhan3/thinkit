@@ -13,6 +13,7 @@ import BulkImport from '@/pages/bulk-import';
 import Banners from '@/pages/banners';
 import Categories from '@/pages/categories';
 import Settings from '@/pages/settings';
+import InventorySync from '@/pages/inventory-sync';
 
 import { AdminLayout } from '@/components/layout/admin-layout';
 import { AuthGuard } from '@/components/auth-guard';
@@ -33,6 +34,7 @@ function AuthenticatedRoutes() {
           <Route path="/banners" component={Banners} />
           <Route path="/categories" component={Categories} />
           <Route path="/settings" component={Settings} />
+          <Route path="/inventory-sync" component={InventorySync} />
           <Route component={NotFound} />
         </Switch>
       </AdminLayout>

@@ -1,0 +1,135 @@
+Build a Manual Inventory Sync System for Thinkit using Vyapar CSV files.
+
+Purpose:
+Vyapar will remain the main inventory software.
+Thinkit will sync inventory manually 3–4 times per day by uploading a CSV exported from Vyapar.
+
+==================================================
+1. NEW MENU IN ADMIN PANEL
+==================================================
+
+Add a new menu item:
+
+📦 Inventory Sync
+
+This page should contain:
+
+- Upload CSV Button
+- Sync Inventory Button
+- Last Sync Time
+- Sync History
+- Sync Summary Report
+
+==================================================
+2. CSV IMPORT LOGIC
+==================================================
+
+The system should read the CSV exported from Vyapar.
+
+Match products using:
+
+Priority 1:
+Barcode
+
+Priority 2:
+Product Name (case-insensitive)
+
+Update the following fields:
+
+✅ Stock Quantity
+✅ MRP
+✅ Selling Price
+
+Do not create duplicate products.
+
+==================================================
+3. SAFETY BUFFER SYSTEM
+==================================================
+
+Add a global inventory safety buffer.
+
+Default:
+
+Safety Buffer = 2 units
+
+Example:
+
+Actual Stock in Vyapar = 20
+Customer App Available Stock = 18
+
+Formula:
+
+Available Stock = Actual Stock - Safety Buffer
+
+If Available Stock <= 0:
+
+Automatically mark the product as:
+
+OUT OF STOCK
+
+Hide the Add to Cart button.
+
+==================================================
+4. SYNC SUMMARY
+==================================================
+
+After every sync, show:
+
+Inventory Sync Successful
+
+Products Updated: 2850
+New Products: 0
+Out Of Stock: 42
+Errors: 3
+
+Also save:
+
+Date
+Time
+Admin User
+File Name
+
+==================================================
+5. LAST SYNC STATUS
+==================================================
+
+Show on Dashboard:
+
+Last Inventory Sync:
+Today, 6:30 PM
+
+If no sync is done for more than 8 hours:
+
+Show warning:
+
+⚠ Inventory not synced recently.
+
+==================================================
+6. CUSTOMER APP
+==================================================
+
+Customer App must always use:
+
+Available Stock
+= Actual Stock - Safety Buffer
+
+Products with zero available stock must automatically become:
+
+Out Of Stock
+
+No manual action required.
+
+==================================================
+7. IMPORTANT BUSINESS RULES
+==================================================
+
+Vyapar is the single source of truth.
+
+Never edit inventory quantities manually inside Thinkit.
+
+Thinkit should only read inventory from Vyapar CSV uploads.
+
+This system is designed for a single grocery store with 3000+ products and manual inventory sync 3–4 times per day.
+
+Do not change the current UI design.
+Only add the Inventory Sync module and business logic.

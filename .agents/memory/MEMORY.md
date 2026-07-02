@@ -8,3 +8,4 @@
 - [Real-time orders pattern](realtime-orders.md) — admin: 5s polling on useListAdminOrders, 3s on useGetAdminOrder; customer: 5s setInterval in useOrders hook; cancel is atomic WHERE clause (no read-then-write race)
 - [Order payment & cancellation schema](order-payment-cancellation.md) — 5 new nullable columns on orders table; drizzle-kit push requires TTY so use executeSql directly for ADD COLUMN migrations
 - [Store settings architecture](store-settings.md) — singleton store_settings row; public /api/settings; safeNum() for zero-value parsing; min-order enforced server-side; lib/db needs tsc --build before api-server typecheck
+- [Inventory sync architecture](inventory-sync.md) — Vyapar CSV → update-only; safety buffer in store_settings; RFC4180 parser inline; client sends CSV as JSON text (no multipart)

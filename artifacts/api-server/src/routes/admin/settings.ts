@@ -55,6 +55,7 @@ router.patch("/admin/settings", requireAdmin, async (req, res): Promise<void> =>
   int("handlingFee");
   bool("minOrderEnabled");
   int("minOrderValue");
+  int("inventorySafetyBuffer");
 
   // Ensure the singleton row exists before updating (self-healing)
   await db.insert(storeSettingsTable).values({ id: 1 }).onConflictDoNothing();

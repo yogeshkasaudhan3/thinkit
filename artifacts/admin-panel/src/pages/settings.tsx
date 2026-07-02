@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Loader2, Store, Truck, Save } from 'lucide-react';
+import { Loader2, Store, Truck, Save, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,7 @@ interface AdminSettings {
   handlingFee: number;
   minOrderEnabled: boolean;
   minOrderValue: number;
+  inventorySafetyBuffer: number;
 }
 
 type FormValues = {
@@ -43,6 +44,7 @@ type FormValues = {
   handlingFee: string;
   minOrderEnabled: boolean;
   minOrderValue: string;
+  inventorySafetyBuffer: string;
 };
 
 // ── API helpers ───────────────────────────────────────────────────────────────
@@ -72,6 +74,7 @@ function settingsToForm(s: AdminSettings): FormValues {
     handlingFee: String(s.handlingFee),
     minOrderEnabled: s.minOrderEnabled,
     minOrderValue: String(s.minOrderValue),
+    inventorySafetyBuffer: String(s.inventorySafetyBuffer ?? 2),
   };
 }
 
@@ -91,6 +94,7 @@ function formToPayload(f: FormValues): Partial<AdminSettings> {
     handlingFee: parseInt(f.handlingFee, 10),
     minOrderEnabled: f.minOrderEnabled,
     minOrderValue: parseInt(f.minOrderValue, 10),
+    inventorySafetyBuffer: parseInt(f.inventorySafetyBuffer, 10),
   };
 }
 
@@ -188,6 +192,7 @@ export default function Settings() {
       handlingFee: '5',
       minOrderEnabled: false,
       minOrderValue: '0',
+      inventorySafetyBuffer: '2',
     },
   });
 
@@ -311,6 +316,26 @@ export default function Settings() {
             </Field>
           )}
         </div>
+      </Section>
+
+      {/* ── Inventory Settings ── */}
+      <Section
+        icon={Database}
+        title="Inventory Settings"
+        description="Controls how Vyapar stock quantities are displayed to customers."
+      >
+        <Field
+          label="Safety Buffer (units)"
+          hint="Subtracted from Vyapar stock before showing to customers. Products with available stock ≤ 0 are automatically marked Out of Stock. Default: 2."
+        >
+          <Input
+            {...form.register('inventorySafetyBuffer')}
+            type="number"
+            min="0"
+            step="1"
+            placeholder="2"
+          />
+        </Field>
       </Section>
 
       {/* Sticky save for mobile */}

@@ -16,6 +16,7 @@ export const storeSettingsTable = pgTable("store_settings", {
   handlingFee: integer("handling_fee").notNull().default(5),
   minOrderEnabled: boolean("min_order_enabled").notNull().default(false),
   minOrderValue: integer("min_order_value").notNull().default(0),
+  inventorySafetyBuffer: integer("inventory_safety_buffer").notNull().default(2),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()
