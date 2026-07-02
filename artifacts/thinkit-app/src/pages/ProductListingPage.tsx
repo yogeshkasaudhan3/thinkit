@@ -66,9 +66,7 @@ export default function ProductListingPage() {
         )}
         <div className="grid grid-cols-2 gap-3">
           {products.map(product => (
-            <div key={product.id} className="w-full">
-              <ProductCard product={product} />
-            </div>
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
         {!loading && products.length === 0 && (

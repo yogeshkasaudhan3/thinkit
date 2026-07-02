@@ -45,65 +45,69 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <div
       onClick={() => setLocation(`/product/${product.id}`)}
-      className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col relative w-[160px] min-w-[160px] active:scale-[0.98] transition-transform cursor-pointer"
+      className="bg-white rounded-2xl border border-gray-100 shadow-md overflow-hidden flex flex-col relative w-full active:scale-[0.98] transition-transform cursor-pointer"
     >
       {!product.inStock && (
-        <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center">
+        <div className="absolute inset-0 bg-white/75 z-10 flex items-center justify-center">
           <span className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full">Out of Stock</span>
         </div>
       )}
 
+      {/* Image area — 55–60% of card height */}
       <div
-        className="h-32 w-full flex items-center justify-center relative p-4"
-        style={{ backgroundColor: `${effectiveColor}20` }}
+        className="h-[150px] w-full flex items-center justify-center relative p-3"
+        style={{ backgroundColor: `${effectiveColor}18` }}
       >
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="w-20 h-20 object-contain rounded-full"
+            className="w-full h-full object-contain"
           />
         ) : (
           <div
-            className="w-20 h-20 rounded-full shadow-inner flex items-center justify-center text-center p-2 text-xs font-bold text-gray-800 bg-white/80 border-4 border-white"
-            style={{ backgroundColor: effectiveColor }}
+            className="w-full h-full flex items-center justify-center text-center p-3 text-sm font-bold text-gray-700 rounded-xl"
+            style={{ backgroundColor: `${effectiveColor}30` }}
           >
             {product.brand}
           </div>
         )}
       </div>
 
-      <div className="p-3 flex-1 flex flex-col">
-        <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide truncate mb-1.5">{product.brand}</p>
-        <h3 className="font-semibold text-[13px] leading-tight text-gray-900 line-clamp-2 mb-1.5 min-h-[38px]">{product.name}</h3>
-        <p className="text-[11px] text-gray-400 mb-2">{product.weight}</p>
+      {/* Product info */}
+      <div className="px-3 pt-2 pb-3 flex-1 flex flex-col gap-0.5">
+        <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest truncate">{product.brand}</p>
+        <h3 className="font-bold text-[13px] leading-tight text-gray-900 line-clamp-2 min-h-[36px]">{product.name}</h3>
+        <p className="text-[11px] text-gray-400">{product.weight}</p>
 
-        <div className="mt-auto flex items-center justify-between gap-1">
+        <div className="mt-2 flex items-end justify-between gap-1">
           <div className="min-w-0">
-            <p className="text-[10px] text-gray-400 line-through leading-none mb-0.5">₹{product.mrp}</p>
-            <p className="font-bold text-[15px] text-primary leading-none">₹{product.price}</p>
+            {product.mrp > product.price && (
+              <p className="text-[10px] text-gray-400 line-through leading-none mb-0.5">₹{product.mrp}</p>
+            )}
+            <p className="font-bold text-[16px] text-primary leading-none">₹{product.price}</p>
           </div>
 
           {qty === 0 ? (
             <button
               onClick={handleAdd}
               disabled={!product.inStock}
-              className={`shrink-0 border border-primary text-primary px-3 py-1.5 rounded-lg text-xs font-bold tracking-wide active:bg-primary/10 transition-colors ${!product.inStock ? 'opacity-50' : ''}`}
+              className={`shrink-0 border-2 border-primary text-primary px-3 py-1 rounded-full text-xs font-bold tracking-wide active:bg-primary/10 transition-colors ${!product.inStock ? 'opacity-50' : ''}`}
             >
               + ADD
             </button>
           ) : (
-            <div className="flex items-center bg-primary text-white rounded-lg h-8 w-[72px]">
+            <div className="flex items-center bg-primary text-white rounded-full h-8 w-[76px]">
               <button
                 onClick={(e) => handleUpdate(e, qty - 1)}
-                className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-l-lg"
+                className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-l-full"
               >
                 <Minus size={14} />
               </button>
-              <span className="text-sm font-bold w-4 text-center">{qty}</span>
+              <span className="text-sm font-bold w-5 text-center">{qty}</span>
               <button
                 onClick={(e) => handleUpdate(e, qty + 1)}
-                className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-r-lg"
+                className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-r-full"
               >
                 <Plus size={14} />
               </button>
@@ -279,9 +283,9 @@ export default function HomePage() {
             <h2 className="font-bold text-lg text-gray-900">Best Sellers</h2>
             <Link href="/products/all" className="text-primary text-sm font-semibold">See All</Link>
           </div>
-          <div className="flex overflow-x-auto gap-4 px-4 pb-4 snap-x no-scrollbar">
+          <div className="flex overflow-x-auto gap-3 px-4 pb-4 snap-x no-scrollbar">
             {bestSellers.map(product => (
-              <div key={product.id} className="snap-start">
+              <div key={product.id} className="snap-start min-w-[160px] w-[160px]">
                 <ProductCard product={product} />
               </div>
             ))}
@@ -295,9 +299,9 @@ export default function HomePage() {
             <h2 className="font-bold text-lg text-gray-900">Dwarika Specials</h2>
             <Link href="/products/all" className="text-primary text-sm font-semibold">See All</Link>
           </div>
-          <div className="flex overflow-x-auto gap-4 px-4 pb-4 snap-x no-scrollbar">
+          <div className="flex overflow-x-auto gap-3 px-4 pb-4 snap-x no-scrollbar">
             {dwarikaSpecials.map(product => (
-              <div key={product.id} className="snap-start">
+              <div key={product.id} className="snap-start min-w-[160px] w-[160px]">
                 <ProductCard product={product} />
               </div>
             ))}

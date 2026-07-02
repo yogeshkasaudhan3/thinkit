@@ -97,16 +97,16 @@ export default function SubcategoryPage() {
 
       {/* Subcategory Tabs — rendered only when products have subcategory data */}
       {!loading && subcategories.length > 0 && (
-        <div className="bg-white border-b border-gray-100 sticky top-14 z-30">
+        <div className="bg-white border-b border-gray-100 sticky top-14 z-30 shadow-sm">
           <div className="flex overflow-x-auto no-scrollbar px-4 py-3 gap-2">
             {subcategories.map((subcat) => (
               <button
                 key={subcat}
                 onClick={() => setActiveSubcat(subcat)}
-                className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                className={`whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all border ${
                   activeSubcat === subcat
-                    ? 'bg-primary border-primary text-white'
-                    : 'bg-white border-gray-200 text-gray-600'
+                    ? 'bg-primary border-primary text-white shadow-sm'
+                    : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
                 }`}
               >
                 {subcat}
@@ -125,9 +125,7 @@ export default function SubcategoryPage() {
         ) : displayProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {displayProducts.map((product) => (
-              <div key={product.id} className="w-full">
-                <ProductCard product={product} />
-              </div>
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
