@@ -130,9 +130,9 @@ export default function ProductDetailPage() {
             <div className="px-5 flex justify-between items-end mb-4">
               <h2 className="font-bold text-lg text-gray-900">Similar Products</h2>
             </div>
-            <div className="flex overflow-x-auto gap-4 px-5 pb-4 snap-x no-scrollbar">
+            <div className="flex overflow-x-auto gap-3 px-5 pb-4 snap-x no-scrollbar">
               {similarProducts.map(p => (
-                <div key={p.id} className="snap-start">
+                <div key={p.id} className="snap-start min-w-[150px] w-[150px]">
                   <ProductCard product={p} />
                 </div>
               ))}

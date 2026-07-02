@@ -30,8 +30,6 @@ export function ProductCard({ product }: { product: Product }) {
   const cartItem = cart.find(c => c.product.id === product.id);
   const qty = cartItem ? cartItem.qty : 0;
 
-  const effectiveColor = product.color || CATEGORY_COLORS[product.categoryId] || '#e8e8e8';
-
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     addToCart(product);
@@ -45,71 +43,65 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <div
       onClick={() => setLocation(`/product/${product.id}`)}
-      className="bg-white rounded-2xl border border-gray-100 shadow-md overflow-hidden flex flex-col relative w-full active:scale-[0.98] transition-transform cursor-pointer"
+      className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col relative w-full active:scale-[0.98] transition-transform cursor-pointer"
     >
       {!product.inStock && (
-        <div className="absolute inset-0 bg-white/75 z-10 flex items-center justify-center">
-          <span className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full">Out of Stock</span>
+        <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center rounded-xl">
+          <span className="bg-gray-800 text-white text-[11px] font-bold px-3 py-1 rounded-full">Out of Stock</span>
         </div>
       )}
 
-      {/* Image area — 55–60% of card height */}
-      <div
-        className="h-[150px] w-full flex items-center justify-center relative p-3"
-        style={{ backgroundColor: `${effectiveColor}18` }}
-      >
+      {/* Image area — white background, object-contain, 60% of card */}
+      <div className="h-[150px] w-full bg-white flex items-center justify-center p-3 border-b border-gray-100">
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
             alt={product.name}
             className="w-full h-full object-contain"
+            draggable={false}
           />
         ) : (
-          <div
-            className="w-full h-full flex items-center justify-center text-center p-3 text-sm font-bold text-gray-700 rounded-xl"
-            style={{ backgroundColor: `${effectiveColor}30` }}
-          >
-            {product.brand}
+          <div className="w-full h-full flex items-center justify-center text-center text-[11px] font-semibold text-gray-400">
+            {product.brand || product.name}
           </div>
         )}
       </div>
 
-      {/* Product info */}
-      <div className="px-3 pt-2 pb-3 flex-1 flex flex-col gap-0.5">
-        <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest truncate">{product.brand}</p>
-        <h3 className="font-bold text-[13px] leading-tight text-gray-900 line-clamp-2 min-h-[36px]">{product.name}</h3>
-        <p className="text-[11px] text-gray-400">{product.weight}</p>
+      {/* Product info — ~40% of card */}
+      <div className="px-2.5 pt-2 pb-2.5 flex-1 flex flex-col gap-0.5">
+        <p className="text-[10px] text-gray-400 font-medium truncate">{product.weight}</p>
+        <h3 className="font-semibold text-[12.5px] leading-tight text-gray-900 line-clamp-2 min-h-[34px]">{product.name}</h3>
 
-        <div className="mt-2 flex items-end justify-between gap-1">
+        <div className="mt-auto pt-1.5 flex items-center justify-between gap-1">
           <div className="min-w-0">
             {product.mrp > product.price && (
               <p className="text-[10px] text-gray-400 line-through leading-none mb-0.5">₹{product.mrp}</p>
             )}
-            <p className="font-bold text-[16px] text-primary leading-none">₹{product.price}</p>
+            <p className="font-bold text-[15px] text-gray-900 leading-none">₹{product.price}</p>
           </div>
 
           {qty === 0 ? (
             <button
               onClick={handleAdd}
               disabled={!product.inStock}
-              className={`shrink-0 border-2 border-primary text-primary px-3 py-1 rounded-full text-xs font-bold tracking-wide active:bg-primary/10 transition-colors ${!product.inStock ? 'opacity-50' : ''}`}
+              className={`shrink-0 border-2 border-primary text-primary px-3 py-[5px] rounded-lg text-[11px] font-bold tracking-wide active:bg-primary/10 transition-colors bg-white ${!product.inStock ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
-              + ADD
+              ADD
             </button>
           ) : (
-            <div className="flex items-center bg-primary text-white rounded-full h-8 w-[76px]">
+            <div className="flex items-center bg-primary text-white rounded-lg h-[30px] w-[76px]">
               <button
                 onClick={(e) => handleUpdate(e, qty - 1)}
-                className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-l-full"
+                className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-l-lg"
               >
-                <Minus size={14} />
+                <Minus size={13} />
               </button>
-              <span className="text-sm font-bold w-5 text-center">{qty}</span>
+              <span className="text-[13px] font-bold w-5 text-center">{qty}</span>
               <button
                 onClick={(e) => handleUpdate(e, qty + 1)}
-                className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-r-full"
+                className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-r-lg"
               >
-                <Plus size={14} />
+                <Plus size={13} />
               </button>
             </div>
           )}
