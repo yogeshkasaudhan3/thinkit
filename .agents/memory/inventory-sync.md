@@ -51,6 +51,22 @@ Header normalisation: lowercase, strip all special chars **except** `* / .` (mus
 
 **Why:** Without clearing first, selecting a second file leaves the button enabled with the old base64 payload until the new read completes — user could submit stale data.
 
+## Three-tier name matching
+1. **Barcode** — `products.barcode` (non-empty, case-insensitive)
+2. **Exact name** — case-insensitive, full string
+3. **Normalized name** — both sides run through `normalizeName()`: lowercase, unit collapsing ("5 Kg"→"5kg"), non-alphanumeric→space, collapse spaces
+
+`normalizeName` handles: "5 Kg"→"5kg", "5KG"→"5kg", "G-Gold"→"g gold", "100%  Wheat"→"100 wheat", "500ml"→"500ml".
+
+## Preview endpoint (read-only)
+`POST /api/admin/inventory-sync/preview` — parses XLSX + runs matching, returns `{totalRows, matched, notFound, skippedBlank, matchedSample[5], notFoundRows[all]}` with **no DB writes**.
+- `loadRefData()` must NOT contain any `db.insert()` — settings row upsert belongs in the sync path only (already fixed; if row missing, defaults to buffer=2)
+
+## Three-step UI flow
+1. **Upload** — dropzone + "Preview Matches" button
+2. **Preview** — match stats + sample matched + all unmatched with reasons; "Confirm & Sync N Products" disabled when matched=0
+3. **Result** — 6-stat grid (Total Rows / Updated / OOS / Not Found / Errors / Blank) + unmatched table + "Sync Another File"
+
 ## How to apply
 - Adding new Vyapar columns: add aliases to the relevant key in `ALIASES` constant in inventory-sync.ts
 - Adding new store setting fields that affect sync: add `int(field)` to the admin settings PATCH handler
