@@ -1,64 +1,23 @@
 import { Router, type IRouter } from "express";
+import { read, utils } from "xlsx";
 import {
   db,
   productsTable,
   storeSettingsTable,
   inventorySyncLogsTable,
   adminUsersTable,
+  categoriesTable,
 } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/requireAdmin";
 
 const router: IRouter = Router();
 
-// ── RFC 4180 CSV parser ───────────────────────────────────────────────────────
-
-function parseCsvContent(raw: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let inQuotes = false;
-
-  // Normalise line endings; add sentinel so the last row is always flushed
-  const content = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n") + "\n";
-
-  for (let i = 0; i < content.length; i++) {
-    const ch = content[i];
-    const next = content[i + 1] ?? "";
-
-    if (inQuotes) {
-      if (ch === '"' && next === '"') {
-        field += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        field += ch;
-      }
-    } else {
-      if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === ",") {
-        row.push(field.trim());
-        field = "";
-      } else if (ch === "\n") {
-        row.push(field.trim());
-        if (row.some((f) => f !== "")) rows.push(row);
-        row = [];
-        field = "";
-      } else {
-        field += ch;
-      }
-    }
-  }
-
-  return rows;
-}
-
-// ── Vyapar column aliases (all lowercase) ────────────────────────────────────
+// ── Vyapar Gold Desktop column aliases (all lowercase, priority order) ────────
 
 const ALIASES = {
   name: [
+    "item name*",           // Vyapar Gold Desktop exact
     "item name",
     "product name",
     "item/service name",
@@ -69,18 +28,31 @@ const ALIASES = {
     "description",
   ],
   barcode: [
+    "item code",            // Vyapar Gold Desktop exact
     "barcode",
     "barcode no",
     "barcode no.",
     "barcode number",
-    "item code",
     "sku",
     "product code",
     "code",
   ],
-  mrp: ["mrp", "m.r.p.", "m.r.p", "maximum retail price", "max retail price"],
+  category: [
+    "category",             // Vyapar Gold Desktop exact
+    "category name",
+    "item category",
+    "product category",
+  ],
+  mrp: [
+    "default mrp",          // Vyapar Gold Desktop exact
+    "mrp",
+    "m.r.p.",
+    "m.r.p",
+    "maximum retail price",
+    "max retail price",
+  ],
   price: [
-    "sale price",
+    "sale price",           // Vyapar Gold Desktop exact
     "selling price",
     "price",
     "sales price",
@@ -89,6 +61,7 @@ const ALIASES = {
     "rate",
   ],
   stock: [
+    "current stock quantity", // Vyapar Gold Desktop exact
     "stock qty",
     "stock quantity",
     "quantity",
@@ -109,6 +82,10 @@ function resolveCol(headers: string[], aliases: readonly string[]): number {
     if (idx !== -1) return idx;
   }
   return -1;
+}
+
+function safeNum(raw: string): number {
+  return parseFloat(raw.replace(/[^0-9.]/g, ""));
 }
 
 // ── Routes ───────────────────────────────────────────────────────────────────
@@ -151,13 +128,81 @@ router.post(
   "/admin/inventory-sync",
   requireAdmin,
   async (req, res): Promise<void> => {
-    const { csvContent, fileName } = req.body as {
-      csvContent?: unknown;
+    const { xlsxBase64, fileName } = req.body as {
+      xlsxBase64?: unknown;
       fileName?: unknown;
     };
 
-    if (typeof csvContent !== "string" || !csvContent.trim()) {
-      res.status(400).json({ error: "csvContent is required" });
+    if (typeof xlsxBase64 !== "string" || !xlsxBase64.trim()) {
+      res.status(400).json({ error: "xlsxBase64 is required" });
+      return;
+    }
+
+    // ── Parse XLSX ─────────────────────────────────────────────────────────
+    let rows: string[][];
+    try {
+      const buffer = Buffer.from(xlsxBase64, "base64");
+      const workbook = read(buffer, {
+        type: "buffer",
+        cellDates: false,
+        cellNF: false,
+        cellStyles: false,
+        sheetStubs: false,
+      });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        res.status(400).json({ error: "No worksheets found in the XLSX file." });
+        return;
+      }
+      const sheet = workbook.Sheets[sheetName];
+      // raw:false ensures numbers are formatted as strings; defval='' fills empty cells
+      rows = utils.sheet_to_json<string[]>(sheet, {
+        header: 1,
+        defval: "",
+        raw: false,
+      }) as string[][];
+    } catch {
+      res.status(400).json({
+        error:
+          "Failed to parse the XLSX file. Please export it directly from Vyapar (Items Report → Export → Excel).",
+      });
+      return;
+    }
+
+    if (rows.length < 2) {
+      res.status(400).json({
+        error:
+          "The file must have a header row and at least one data row. Is this a valid Vyapar export?",
+      });
+      return;
+    }
+
+    // Normalise headers: lowercase, keep * (for "Item name*"), strip other special chars
+    const headers = rows[0].map((h) =>
+      String(h)
+        .toLowerCase()
+        .replace(/[^a-z0-9 ./*]/g, "")
+        .trim()
+    );
+    const dataRows = rows.slice(1);
+
+    const colName = resolveCol(headers, ALIASES.name);
+    const colBarcode = resolveCol(headers, ALIASES.barcode);
+    const colCategory = resolveCol(headers, ALIASES.category);
+    const colMrp = resolveCol(headers, ALIASES.mrp);
+    const colPrice = resolveCol(headers, ALIASES.price);
+    const colStock = resolveCol(headers, ALIASES.stock);
+
+    if (colName === -1 && colBarcode === -1) {
+      res.status(400).json({
+        error: `File must have an 'Item name*' or 'Item code' column. Detected headers: ${headers.join(", ")}`,
+      });
+      return;
+    }
+    if (colStock === -1) {
+      res.status(400).json({
+        error: `File must have a 'Current stock quantity' column. Detected headers: ${headers.join(", ")}`,
+      });
       return;
     }
 
@@ -171,57 +216,14 @@ router.post(
       : [];
     const adminUser = admin?.username ?? "admin";
 
-    // ── Parse CSV ──────────────────────────────────────────────────────────
-    const rawRows = parseCsvContent(csvContent);
-    if (rawRows.length < 2) {
-      res
-        .status(400)
-        .json({
-          error:
-            "CSV must have a header row and at least one data row. Is this a valid Vyapar export?",
-        });
-      return;
-    }
-
-    // Normalise headers: lowercase, strip special chars except spaces and slashes
-    const headers = rawRows[0].map((h) =>
-      h
-        .toLowerCase()
-        .replace(/[^a-z0-9 ./]/g, "")
-        .trim()
-    );
-    const dataRows = rawRows.slice(1);
-
-    const colName = resolveCol(headers, ALIASES.name);
-    const colBarcode = resolveCol(headers, ALIASES.barcode);
-    const colMrp = resolveCol(headers, ALIASES.mrp);
-    const colPrice = resolveCol(headers, ALIASES.price);
-    const colStock = resolveCol(headers, ALIASES.stock);
-
-    if (colName === -1 && colBarcode === -1) {
-      res.status(400).json({
-        error: `CSV must have an 'Item Name' or 'Barcode' column. Detected headers: ${headers.join(", ")}`,
-      });
-      return;
-    }
-    if (colStock === -1) {
-      res.status(400).json({
-        error: `CSV must have a stock quantity column (e.g. 'Stock Qty'). Detected headers: ${headers.join(", ")}`,
-      });
-      return;
-    }
-
     // ── Fetch safety buffer ────────────────────────────────────────────────
-    await db
-      .insert(storeSettingsTable)
-      .values({ id: 1 })
-      .onConflictDoNothing();
+    await db.insert(storeSettingsTable).values({ id: 1 }).onConflictDoNothing();
     const [settings] = await db
       .select({ inventorySafetyBuffer: storeSettingsTable.inventorySafetyBuffer })
       .from(storeSettingsTable);
     const safetyBuffer = settings?.inventorySafetyBuffer ?? 2;
 
-    // ── Load all products into memory ──────────────────────────────────────
+    // ── Load all products into memory maps ─────────────────────────────────
     const allProducts = await db
       .select({
         id: productsTable.id,
@@ -237,28 +239,42 @@ router.post(
       byName.set(p.name.trim().toLowerCase(), p.id);
     }
 
+    // ── Load all categories into a name → id map ───────────────────────────
+    const allCategories = await db
+      .select({ id: categoriesTable.id, name: categoriesTable.name })
+      .from(categoriesTable);
+    const byCategoryName = new Map<string, string>();
+    for (const c of allCategories) {
+      byCategoryName.set(c.name.trim().toLowerCase(), String(c.id));
+    }
+
     // ── Process rows ───────────────────────────────────────────────────────
     type SyncError = { row: number; name: string; reason: string };
+    type ProductUpdate = {
+      id: number;
+      updates: Partial<typeof productsTable.$inferInsert>;
+    };
+
     let productsUpdated = 0;
     let outOfStockCount = 0;
     let errorCount = 0;
     const errors: SyncError[] = [];
+    const pendingUpdates: ProductUpdate[] = [];
 
     for (let i = 0; i < dataRows.length; i++) {
       const cols = dataRows[i];
       const rowNum = i + 2; // 1-indexed + header offset
 
-      const csvName = colName >= 0 ? (cols[colName] ?? "").trim() : "";
-      const csvBarcode = colBarcode >= 0 ? (cols[colBarcode] ?? "").trim() : "";
-      const csvStockRaw = (cols[colStock] ?? "").trim();
+      const csvName = colName >= 0 ? String(cols[colName] ?? "").trim() : "";
+      const csvBarcode = colBarcode >= 0 ? String(cols[colBarcode] ?? "").trim() : "";
+      const csvStockRaw = String(cols[colStock] ?? "").trim();
 
       if (!csvName && !csvBarcode) continue; // blank row
 
-      // Priority 1: barcode; Priority 2: name
+      // Priority 1: barcode; Priority 2: name (case-insensitive)
       let productId: number | undefined;
       if (csvBarcode) productId = byBarcode.get(csvBarcode.toLowerCase());
-      if (!productId && csvName)
-        productId = byName.get(csvName.toLowerCase());
+      if (!productId && csvName) productId = byName.get(csvName.toLowerCase());
       if (!productId) continue; // not in Thinkit — skip silently
 
       // Parse stock quantity
@@ -281,39 +297,50 @@ router.post(
 
       // Optional: update MRP
       if (colMrp >= 0) {
-        const raw = (cols[colMrp] ?? "").trim().replace(/[^0-9.]/g, "");
-        const mrp = Math.round(parseFloat(raw));
+        const mrp = Math.round(safeNum(String(cols[colMrp] ?? "")));
         if (!isNaN(mrp) && mrp > 0) updates.mrp = mrp;
       }
+
       // Optional: update selling price
       if (colPrice >= 0) {
-        const raw = (cols[colPrice] ?? "").trim().replace(/[^0-9.]/g, "");
-        const price = Math.round(parseFloat(raw));
+        const price = Math.round(safeNum(String(cols[colPrice] ?? "")));
         if (!isNaN(price) && price > 0) updates.price = price;
       }
 
-      try {
-        await db
-          .update(productsTable)
-          .set(updates)
-          .where(eq(productsTable.id, productId));
-        productsUpdated++;
-        if (!updates.inStock) outOfStockCount++;
-      } catch {
-        errorCount++;
-        errors.push({
-          row: rowNum,
-          name: csvName || csvBarcode,
-          reason: "Database update failed",
-        });
+      // Optional: update category (if CSV has it and it matches an existing Thinkit category)
+      if (colCategory >= 0) {
+        const csvCategory = String(cols[colCategory] ?? "").trim();
+        if (csvCategory) {
+          const categoryId = byCategoryName.get(csvCategory.toLowerCase());
+          if (categoryId) updates.categoryId = categoryId;
+        }
       }
+
+      pendingUpdates.push({ id: productId, updates });
+    }
+
+    // ── Apply all updates in a single transaction (fast for 3 000+ rows) ──
+    try {
+      await db.transaction(async (tx) => {
+        for (const { id, updates } of pendingUpdates) {
+          await tx
+            .update(productsTable)
+            .set(updates)
+            .where(eq(productsTable.id, id));
+          productsUpdated++;
+          if (updates.inStock === false) outOfStockCount++;
+        }
+      });
+    } catch {
+      res.status(500).json({ error: "Database transaction failed during sync." });
+      return;
     }
 
     // ── Save sync log ──────────────────────────────────────────────────────
     const safeFileName =
       typeof fileName === "string" && fileName.trim()
         ? fileName.trim()
-        : "upload.csv";
+        : "upload.xlsx";
 
     const [log] = await db
       .insert(inventorySyncLogsTable)

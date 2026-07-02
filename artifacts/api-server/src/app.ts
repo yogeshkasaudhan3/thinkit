@@ -29,8 +29,9 @@ app.use(
 app.set("trust proxy", 1);
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 15 MB limit accommodates base64-encoded XLSX files for inventory sync (3 000+ products ≈ 700 KB base64)
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET environment variable is required");

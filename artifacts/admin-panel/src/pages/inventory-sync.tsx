@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, formatDistanceToNow, isAfter, subHours } from 'date-fns';
 import {
   Upload, RefreshCw, CheckCircle, AlertTriangle,
-  Clock, Package, FileText, X, Loader2,
+  Clock, Package, FileText, X, Loader2, Table2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,17 @@ function Stat({ value, label, highlight }: { value: number; label: string; highl
   );
 }
 
+// ── Column mapping hint ───────────────────────────────────────────────────────
+
+const COLUMN_MAP = [
+  { vyapar: 'Item name*',              thinkit: 'Product Name' },
+  { vyapar: 'Item code',               thinkit: 'Barcode / SKU' },
+  { vyapar: 'Category',                thinkit: 'Category' },
+  { vyapar: 'Default Mrp',             thinkit: 'MRP' },
+  { vyapar: 'Sale price',              thinkit: 'Selling Price' },
+  { vyapar: 'Current stock quantity',  thinkit: 'Stock Quantity' },
+];
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function InventorySync() {
@@ -67,7 +78,7 @@ export default function InventorySync() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [csvContent, setCsvContent] = useState('');
+  const [xlsxBase64, setXlsxBase64] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [lastResult, setLastResult] = useState<{
     summary: SyncSummary;
@@ -88,24 +99,43 @@ export default function InventorySync() {
   // ── File handling ──────────────────────────────────────────────────────────
 
   const loadFile = (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext !== 'xlsx') {
       toast({
         title: 'Invalid file type',
-        description: 'Please upload a CSV file exported from Vyapar.',
+        description: 'Please upload an Excel (.xlsx) file exported from Vyapar.',
         variant: 'destructive',
       });
       return;
     }
+    // Clear stale base64 immediately so the Sync button stays disabled while reading
+    setXlsxBase64('');
     setSelectedFile(file);
     setLastResult(null);
+
+    // Read as data URL → extract base64 payload
     const reader = new FileReader();
-    reader.onload = (e) => setCsvContent((e.target?.result as string) ?? '');
-    reader.readAsText(file, 'utf-8');
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      // Format: data:<mime>;base64,<data>
+      const base64 = dataUrl.split(',')[1] ?? '';
+      setXlsxBase64(base64);
+    };
+    reader.onerror = () => {
+      toast({
+        title: 'File read failed',
+        description: 'Could not read the file. Please try again.',
+        variant: 'destructive',
+      });
+      clearFile();
+    };
+    reader.onabort = () => clearFile();
+    reader.readAsDataURL(file);
   };
 
   const clearFile = () => {
     setSelectedFile(null);
-    setCsvContent('');
+    setXlsxBase64('');
     setLastResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -120,13 +150,13 @@ export default function InventorySync() {
   // ── Sync ───────────────────────────────────────────────────────────────────
 
   const handleSync = async () => {
-    if (!selectedFile || !csvContent) return;
+    if (!selectedFile || !xlsxBase64) return;
     setSyncing(true);
     try {
       const result = await adminFetch('/api/admin/inventory-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csvContent, fileName: selectedFile.name }),
+        body: JSON.stringify({ xlsxBase64, fileName: selectedFile.name }),
       });
       setLastResult({ summary: result.summary, errors: result.errors });
       qc.invalidateQueries({ queryKey: ['/api/admin/inventory-sync/history'] });
@@ -156,7 +186,7 @@ export default function InventorySync() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Inventory Sync</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Upload a Vyapar CSV to update stock, MRP, and selling prices.
+            Upload a Vyapar Excel export to update stock, prices, and categories.
           </p>
         </div>
         {lastSync && (
@@ -181,7 +211,7 @@ export default function InventorySync() {
           <p className="text-sm font-medium">
             {lastSync
               ? '⚠ Inventory not synced recently. Sync 3–4 times per day to keep stock accurate.'
-              : '⚠ No inventory sync has been performed yet. Upload your first Vyapar CSV below.'}
+              : '⚠ No inventory sync has been performed yet. Upload your first Vyapar XLSX below.'}
           </p>
         </div>
       )}
@@ -194,9 +224,9 @@ export default function InventorySync() {
               <Upload className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-base font-semibold">Upload CSV</CardTitle>
+              <CardTitle className="text-base font-semibold">Upload Excel File</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Vyapar → Items Report → Export → CSV
+                Vyapar → Items Report → Export → Excel (.xlsx)
               </p>
             </div>
           </div>
@@ -207,7 +237,7 @@ export default function InventorySync() {
           <div
             role="button"
             tabIndex={0}
-            aria-label="Upload CSV file"
+            aria-label="Upload XLSX file"
             className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all select-none ${
               isDragOver
                 ? 'border-primary bg-primary/5 scale-[0.99]'
@@ -222,7 +252,7 @@ export default function InventorySync() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv"
+              accept=".xlsx"
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) loadFile(f); }}
             />
@@ -233,7 +263,8 @@ export default function InventorySync() {
                 <div className="text-left min-w-0">
                   <p className="font-semibold text-foreground truncate">{selectedFile.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {(selectedFile.size / 1024).toFixed(1)} KB — ready to sync
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                    {xlsxBase64 ? ' — ready to sync' : ' — reading…'}
                   </p>
                 </div>
                 <button
@@ -253,8 +284,8 @@ export default function InventorySync() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Drop your Vyapar CSV here</p>
-                  <p className="text-xs text-muted-foreground mt-1">or click to browse files</p>
+                  <p className="text-sm font-semibold text-foreground">Drop your Vyapar Excel file here</p>
+                  <p className="text-xs text-muted-foreground mt-1">or click to browse — .xlsx only</p>
                 </div>
               </div>
             )}
@@ -263,7 +294,7 @@ export default function InventorySync() {
           {/* Sync button */}
           <Button
             onClick={handleSync}
-            disabled={!selectedFile || syncing}
+            disabled={!selectedFile || !xlsxBase64 || syncing}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
             size="lg"
           >
@@ -273,6 +304,43 @@ export default function InventorySync() {
               <><RefreshCw className="mr-2 h-4 w-4" /> Sync Inventory</>
             )}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* ── Column mapping reference ── */}
+      <Card className="border-border shadow-sm">
+        <CardHeader className="pb-3 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Table2 className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold">Column Mapping</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Vyapar Gold Desktop columns read during sync
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-2.5 text-left font-medium">Vyapar Column</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Updates</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COLUMN_MAP.map(({ vyapar, thinkit }, i) => (
+                  <tr key={vyapar} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
+                    <td className="px-4 py-2.5 font-mono text-xs text-foreground">{vyapar}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{thinkit}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
@@ -331,7 +399,7 @@ export default function InventorySync() {
               <Package className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm font-medium text-muted-foreground">No syncs yet</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Upload a Vyapar CSV above to get started.
+                Upload a Vyapar Excel file above to get started.
               </p>
             </div>
           ) : (
