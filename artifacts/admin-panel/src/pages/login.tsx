@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAdminLogin, useGetAdminMe, getGetAdminMeQueryKey } from '@workspace/api-client-react';
-import { useLocation, Redirect } from 'wouter';
+import { useLocation, Redirect, useSearch } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,6 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Store, Loader2 } from 'lucide-react';
+import { setAuthCache } from '@/components/auth-guard';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -24,6 +25,10 @@ const loginSchema = z.object({
 export default function Login() {
   // All hooks must be called unconditionally at the top — before any early returns
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const isExpired = params.get('reason') === 'expired';
+
   const [errorMsg, setErrorMsg] = useState('');
 
   const { data: admin } = useGetAdminMe({
@@ -47,7 +52,10 @@ export default function Login() {
     login(
       { data: values },
       {
-        onSuccess: () => setLocation('/dashboard'),
+        onSuccess: (data) => {
+          setAuthCache(data.username);
+          setLocation('/dashboard');
+        },
         onError: () => setErrorMsg('Invalid username or password'),
       }
     );
@@ -65,6 +73,12 @@ export default function Login() {
         </div>
 
         <div className="p-6 md:p-8">
+          {isExpired && !errorMsg && (
+            <div className="bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm p-3 rounded-md mb-6 font-medium border border-amber-500/20">
+              Your session has expired. Please sign in again.
+            </div>
+          )}
+
           {errorMsg && (
             <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-6 font-medium">
               {errorMsg}

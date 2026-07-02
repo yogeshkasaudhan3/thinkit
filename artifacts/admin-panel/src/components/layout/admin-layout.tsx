@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAdminLogout, useGetAdminMe } from '@workspace/api-client-react';
 import { OrderAlarm } from '../order-alarm';
+import { clearAuthCache } from '@/components/auth-guard';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
@@ -33,6 +34,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const handleLogout = () => {
     logout(undefined, {
       onSuccess: () => {
+        clearAuthCache();
         setLocation('/login');
       }
     });

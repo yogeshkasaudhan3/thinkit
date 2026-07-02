@@ -52,7 +52,10 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       sameSite: "lax",
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      // Default: 8 hours. Override with SESSION_TTL_MS env var.
+      maxAge: process.env.SESSION_TTL_MS
+        ? Number(process.env.SESSION_TTL_MS)
+        : 8 * 60 * 60 * 1000,
     },
   }),
 );
