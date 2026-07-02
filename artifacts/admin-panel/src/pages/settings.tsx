@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Loader2, Store, Truck, Save, Database } from 'lucide-react';
+import { Loader2, Store, Truck, Save, Database, KeyRound, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -149,6 +149,177 @@ function Row({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>;
 }
 
+// ── Password strength helper ───────────────────────────────────────────────────
+
+function checkPasswordStrength(password: string) {
+  return {
+    minLength: password.length >= 8,
+    hasDigitOrSpecial: /[\d!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password),
+  };
+}
+
+type PasswordFormValues = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+// ── Change Password section ───────────────────────────────────────────────────
+
+function ChangePasswordSection() {
+  const { toast } = useToast();
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const form = useForm<PasswordFormValues>({
+    defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
+  });
+
+  const newPassword = form.watch('newPassword');
+  const confirmPassword = form.watch('confirmPassword');
+  const strength = checkPasswordStrength(newPassword);
+
+  const { mutate: changePassword, isPending } = useMutation({
+    mutationFn: (body: PasswordFormValues) =>
+      fetch('/api/admin/change-password', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error((d as any).error ?? `HTTP ${r.status}`);
+        }
+        return r.json();
+      }),
+    onSuccess: () => {
+      toast({ title: 'Password changed', description: 'Your admin password has been updated successfully.' });
+      form.reset();
+    },
+    onError: (err: any) => {
+      toast({ title: 'Failed to change password', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const onSubmit = (data: PasswordFormValues) => {
+    if (data.newPassword !== data.confirmPassword) {
+      form.setError('confirmPassword', { message: 'Passwords do not match.' });
+      return;
+    }
+    if (!strength.minLength || !strength.hasDigitOrSpecial) {
+      form.setError('newPassword', { message: 'Password does not meet strength requirements.' });
+      return;
+    }
+    changePassword(data);
+  };
+
+  const StrengthRule = ({ ok, label }: { ok: boolean; label: string }) => (
+    <div className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-muted-foreground'}`}>
+      {ok ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <XCircle className="h-3.5 w-3.5 shrink-0" />}
+      {label}
+    </div>
+  );
+
+  const PasswordInput = ({
+    id,
+    placeholder,
+    show,
+    onToggle,
+    ...rest
+  }: {
+    id: string;
+    placeholder: string;
+    show: boolean;
+    onToggle: () => void;
+  } & React.InputHTMLAttributes<HTMLInputElement>) => (
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? 'text' : 'password'}
+        placeholder={placeholder}
+        className="pr-10"
+        {...rest}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+        tabIndex={-1}
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+
+  return (
+    <Section
+      icon={KeyRound}
+      title="Change Password"
+      description="Update your admin login password. You'll need your current password to confirm."
+    >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <Field label="Current Password">
+          <PasswordInput
+            id="currentPassword"
+            placeholder="Enter current password"
+            show={showCurrent}
+            onToggle={() => setShowCurrent((v) => !v)}
+            {...form.register('currentPassword', { required: true })}
+          />
+        </Field>
+
+        <Field label="New Password">
+          <PasswordInput
+            id="newPassword"
+            placeholder="Enter new password"
+            show={showNew}
+            onToggle={() => setShowNew((v) => !v)}
+            {...form.register('newPassword', { required: true })}
+          />
+          {newPassword.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <StrengthRule ok={strength.minLength} label="At least 8 characters" />
+              <StrengthRule ok={strength.hasDigitOrSpecial} label="Contains a number or special character" />
+            </div>
+          )}
+          {form.formState.errors.newPassword && (
+            <p className="text-xs text-destructive mt-1">{form.formState.errors.newPassword.message}</p>
+          )}
+        </Field>
+
+        <Field label="Confirm New Password">
+          <PasswordInput
+            id="confirmPassword"
+            placeholder="Re-enter new password"
+            show={showConfirm}
+            onToggle={() => setShowConfirm((v) => !v)}
+            {...form.register('confirmPassword', { required: true })}
+          />
+          {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+            <p className="text-xs text-destructive mt-1">Passwords do not match.</p>
+          )}
+          {confirmPassword.length > 0 && newPassword === confirmPassword && confirmPassword !== '' && (
+            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Passwords match
+            </p>
+          )}
+        </Field>
+
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+        >
+          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+          Update Password
+        </Button>
+      </form>
+    </Section>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function Settings() {
@@ -213,6 +384,7 @@ export default function Settings() {
   }
 
   return (
+    <>
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -346,5 +518,9 @@ export default function Settings() {
         </Button>
       </div>
     </form>
+
+    {/* ── Change Password ── (outside the store-settings form) */}
+    <ChangePasswordSection />
+    </>
   );
 }

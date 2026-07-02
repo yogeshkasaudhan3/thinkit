@@ -5,6 +5,15 @@ import { AdminLoginBody } from "@workspace/api-zod";
 import { db, adminUsersTable } from "@workspace/db";
 import { requireAdmin } from "../../middleware/requireAdmin";
 
+// Minimum password requirements:
+//  - At least 8 characters
+//  - At least one digit or one special character
+function isStrongPassword(password: string): boolean {
+  if (password.length < 8) return false;
+  const hasDigitOrSpecial = /[\d!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password);
+  return hasDigitOrSpecial;
+}
+
 // Dummy hash used when username is not found — prevents timing-based
 // username enumeration by ensuring bcrypt.compare always runs.
 const DUMMY_HASH =
@@ -74,6 +83,61 @@ router.get("/admin/me", (req, res): void => {
     return;
   }
   res.json({ username: req.session.adminId });
+});
+
+router.post("/admin/change-password", requireAdmin, async (req, res): Promise<void> => {
+  const { currentPassword, newPassword, confirmPassword } = req.body ?? {};
+
+  if (
+    typeof currentPassword !== "string" ||
+    typeof newPassword !== "string" ||
+    typeof confirmPassword !== "string"
+  ) {
+    res.status(400).json({ error: "currentPassword, newPassword, and confirmPassword are required." });
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    res.status(400).json({ error: "New password and confirmation do not match." });
+    return;
+  }
+
+  if (!isStrongPassword(newPassword)) {
+    res.status(400).json({
+      error: "New password must be at least 8 characters and contain at least one digit or special character.",
+    });
+    return;
+  }
+
+  const adminId = req.session.adminId!;
+
+  const [admin] = await db
+    .select()
+    .from(adminUsersTable)
+    .where(eq(adminUsersTable.username, adminId))
+    .limit(1);
+
+  if (!admin) {
+    res.status(401).json({ error: "Admin account not found." });
+    return;
+  }
+
+  const passwordMatch = await bcrypt.compare(currentPassword, admin.passwordHash);
+  if (!passwordMatch) {
+    res.status(401).json({ error: "Current password is incorrect." });
+    return;
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+
+  await db
+    .update(adminUsersTable)
+    .set({ passwordHash: newHash })
+    .where(eq(adminUsersTable.username, adminId));
+
+  req.log.info({ username: adminId }, "Admin password changed");
+
+  res.json({ ok: true });
 });
 
 export default router;
