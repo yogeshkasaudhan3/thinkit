@@ -225,13 +225,13 @@ interface MappedRow {
   mrp: number;
   price: number;
   stockQty: number;
-  barcode: string;
+  sku: string;        // Item code from Vyapar — primary product identifier
   rowNum: number;
 }
 
 interface MapRowsResult {
   rows: MappedRow[];
-  skippedBlank: number;    // no name AND no barcode, or separator rows
+  skippedBlank: number;    // no name AND no sku, or separator rows
   skippedNoPrice: number;  // has a name but no usable price (both mrp and price are 0/absent)
 }
 
@@ -246,11 +246,11 @@ function mapRows(parsed: ParsedSheet): MapRowsResult {
     const cols   = dataRows[i] as unknown[];
     const rowNum = i + 2; // 1-indexed + header row
 
-    const rawName    = cell(cols, colName);
-    const rawBarcode = cell(cols, colBarcode);
+    const rawName = cell(cols, colName);
+    const rawSku  = cell(cols, colBarcode); // ALIASES.barcode maps "Item code" → SKU
 
     // Skip truly blank rows and separator rows (rows full of dashes/asterisks)
-    if (!rawName && !rawBarcode) { skippedBlank++; continue; }
+    if (!rawName && !rawSku) { skippedBlank++; continue; }
     if (rawName && /^[-=*_]{2,}$/.test(rawName)) { skippedBlank++; continue; }
 
     const rawMrp   = cell(cols, colMrp);
@@ -262,7 +262,7 @@ function mapRows(parsed: ParsedSheet): MapRowsResult {
     if (price === 0) {
       // Row has a name but no usable price — count separately, not as "blank"
       skippedNoPrice++;
-      log.warn({ rowNum, rawName, rawBarcode, rawMrp, rawPrice }, "Row skipped — no usable price");
+      log.warn({ rowNum, rawName, rawSku, rawMrp, rawPrice }, "Row skipped — no usable price");
       continue;
     }
 
@@ -273,7 +273,7 @@ function mapRows(parsed: ParsedSheet): MapRowsResult {
       mrp:      mrp || price, // fall back to price if MRP also absent
       price,
       stockQty: parseIntVal(cell(cols, colStock)),
-      barcode:  rawBarcode,
+      sku:      rawSku,
       rowNum,
     });
   }
@@ -372,13 +372,13 @@ router.post(
 
     // ── Load existing products for matching ──────────────────────────────────
     const existingProducts = await db
-      .select({ id: productsTable.id, name: productsTable.name, barcode: productsTable.barcode })
+      .select({ id: productsTable.id, name: productsTable.name, sku: productsTable.sku })
       .from(productsTable);
 
-    const byBarcode    = new Map<string, number>(); // barcode → product id
-    const byNormName   = new Map<string, number>(); // normalized name → product id
+    const bySku      = new Map<string, number>(); // sku → product id
+    const byNormName = new Map<string, number>(); // normalized name → product id
     for (const p of existingProducts) {
-      if (p.barcode?.trim()) byBarcode.set(p.barcode.trim().toLowerCase(), p.id);
+      if (p.sku?.trim()) bySku.set(p.sku.trim().toLowerCase(), p.id);
       const norm = normalizeName(p.name);
       if (norm) byNormName.set(norm, p.id);
     }
@@ -428,10 +428,10 @@ router.post(
           }
         }
 
-        // ── 2. Match existing product ────────────────────────────────────────
+        // ── 2. Match existing product (Priority 1: SKU, Priority 2: normalized name)
         let existingId: number | undefined;
-        if (row.barcode) {
-          existingId = byBarcode.get(row.barcode.toLowerCase());
+        if (row.sku) {
+          existingId = bySku.get(row.sku.toLowerCase());
         }
         if (!existingId) {
           existingId = byNormName.get(normalizeName(row.name));
@@ -447,7 +447,7 @@ router.post(
           price:      row.price,
           stockQty:   row.stockQty,
           inStock:    row.stockQty > 0,
-          barcode:    row.barcode || null,
+          sku:        row.sku || null,
           imageUrl:   null as string | null,
           enabled:    true,
           updatedAt:  new Date(),
@@ -466,7 +466,7 @@ router.post(
               price:     values.price,
               stockQty:  values.stockQty,
               inStock:   values.inStock,
-              barcode:   values.barcode,
+              sku:       values.sku,
               updatedAt: values.updatedAt,
             })
             .where(eq(productsTable.id, existingId));
@@ -478,9 +478,9 @@ router.post(
             .values(values)
             .returning({ id: productsTable.id });
 
-          // Cache the new product for subsequent rows with same name/barcode
+          // Cache the new product for subsequent rows with same name/sku
           if (inserted) {
-            if (row.barcode) byBarcode.set(row.barcode.toLowerCase(), inserted.id);
+            if (row.sku) bySku.set(row.sku.toLowerCase(), inserted.id);
             const norm = normalizeName(row.name);
             if (norm) byNormName.set(norm, inserted.id);
           }

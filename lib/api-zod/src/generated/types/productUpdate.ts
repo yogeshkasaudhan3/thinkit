@@ -16,6 +16,7 @@ export interface ProductUpdate {
   price?: number;
   weight?: string;
   imageUrl?: string;
+  sku?: string;
   stockQty?: number;
   inStock?: boolean;
   enabled?: boolean;

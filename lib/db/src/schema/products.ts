@@ -13,7 +13,8 @@ export const productsTable = pgTable("products", {
   price: integer("price").notNull(),
   weight: text("weight").notNull(),
   imageUrl: text("image_url"),
-  barcode: text("barcode"),
+  sku: text("sku"),           // Item Code — primary inventory identifier (Vyapar Item Code)
+  barcode: text("barcode"),   // Optional — future use (physical barcode scanner)
   stockQty: integer("stock_qty").notNull().default(0),
   inStock: boolean("in_stock").notNull().default(true),
   enabled: boolean("enabled").notNull().default(true),

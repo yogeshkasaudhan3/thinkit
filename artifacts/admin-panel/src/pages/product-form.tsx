@@ -52,6 +52,7 @@ function useSubcategoryOptions(categoryId: string) {
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   brand: z.string().min(1, 'Brand is required'),
+  sku: z.string().optional(),
   categoryId: z.string().min(1, 'Category is required'),
   subcategory: z.string().optional(),
   description: z.string().optional(),
@@ -100,6 +101,7 @@ export default function ProductForm() {
     defaultValues: {
       name: '',
       brand: '',
+      sku: '',
       categoryId: '',
       subcategory: '',
       description: '',
@@ -121,6 +123,7 @@ export default function ProductForm() {
       form.reset({
         name: product.name,
         brand: product.brand,
+        sku: product.sku || '',
         categoryId: product.categoryId,
         subcategory: product.subcategory || '',
         description: product.description || '',
@@ -288,6 +291,23 @@ export default function ProductForm() {
                     <FormControl>
                       <Input placeholder="e.g. Aashirvaad" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sku"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>SKU / Item Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. ITM-001 (from Vyapar)" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Unique item code from Vyapar. Used as primary key for inventory sync.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -84,6 +84,8 @@ export interface AdminProduct {
   weight: string;
   /** @nullable */
   imageUrl?: string | null;
+  /** @nullable */
+  sku?: string | null;
   stockQty: number;
   inStock: boolean;
   enabled: boolean;
@@ -102,6 +104,7 @@ export interface ProductInput {
   price: number;
   weight: string;
   imageUrl?: string;
+  sku?: string;
   stockQty?: number;
   inStock?: boolean;
   enabled?: boolean;
@@ -119,6 +122,7 @@ export interface ProductUpdate {
   price?: number;
   weight?: string;
   imageUrl?: string;
+  sku?: string;
   stockQty?: number;
   inStock?: boolean;
   enabled?: boolean;

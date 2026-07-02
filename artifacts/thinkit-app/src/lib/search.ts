@@ -75,6 +75,7 @@ interface SearchDoc {
   product: Product;
   name: string;
   brand: string;
+  sku: string;
   category: string;
   subcats: string;
   keywords: string;
@@ -125,6 +126,7 @@ function buildDocs(products: Product[]): SearchDoc[] {
       product: p,
       name: p.name,
       brand: p.brand,
+      sku: p.sku ?? '',
       category: cat?.name ?? '',
       subcats: (cat?.subcategories ?? []).join(' '),
       keywords: deriveKeywords(p),
@@ -134,11 +136,12 @@ function buildDocs(products: Product[]): SearchDoc[] {
 
 const FUSE_OPTIONS = {
   keys: [
-    { name: 'name',     weight: 0.45 },
-    { name: 'brand',    weight: 0.30 },
-    { name: 'keywords', weight: 0.15 },
-    { name: 'category', weight: 0.07 },
-    { name: 'subcats',  weight: 0.03 },
+    { name: 'sku',      weight: 0.35 },
+    { name: 'name',     weight: 0.35 },
+    { name: 'brand',    weight: 0.18 },
+    { name: 'keywords', weight: 0.08 },
+    { name: 'category', weight: 0.03 },
+    { name: 'subcats',  weight: 0.01 },
   ],
   threshold: FUZZY_THRESHOLD,
   includeScore: true,

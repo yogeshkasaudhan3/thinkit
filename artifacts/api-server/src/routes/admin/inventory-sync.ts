@@ -129,12 +129,12 @@ function normalizeName(raw: string): string {
 
 // ── Types shared between preview and sync ─────────────────────────────────────
 
-export type MatchMethod = "barcode" | "exact" | "normalized";
+export type MatchMethod = "sku" | "exact" | "normalized";
 
 export interface PreviewRow {
   rowNum: number;
   vyaparName: string;
-  vyaparBarcode: string;
+  vyaparSku: string;
   thinkitName: string | null;
   matchMethod: MatchMethod | null;
   status: "matched" | "not_found";
@@ -144,7 +144,7 @@ export interface PreviewRow {
 // ── Reference data loader ─────────────────────────────────────────────────────
 
 interface RefData {
-  byBarcode:        Map<string, { id: number; name: string }>;
+  bySku:            Map<string, { id: number; name: string }>;
   byExact:          Map<string, { id: number; name: string }>;
   byNormalized:     Map<string, { id: number; name: string }>;
   byCategoryName:   Map<string, string>;
@@ -164,24 +164,24 @@ async function loadRefData(): Promise<RefData | { error: string }> {
     log.warn({ err }, "Could not read safety buffer — using default 2");
   }
 
-  let allProducts: { id: number; name: string; barcode: string | null }[];
+  let allProducts: { id: number; name: string; sku: string | null }[];
   try {
     allProducts = await db
-      .select({ id: productsTable.id, name: productsTable.name, barcode: productsTable.barcode })
+      .select({ id: productsTable.id, name: productsTable.name, sku: productsTable.sku })
       .from(productsTable);
   } catch (err) {
     log.error({ err }, "Failed to load products");
     return { error: "Failed to load product catalogue. Please try again." };
   }
 
-  const byBarcode    = new Map<string, { id: number; name: string }>();
+  const bySku        = new Map<string, { id: number; name: string }>();
   const byExact      = new Map<string, { id: number; name: string }>();
   const byNormalized = new Map<string, { id: number; name: string }>();
 
   for (const p of allProducts) {
     const entry = { id: p.id, name: p.name };
-    if (p.barcode?.trim()) {
-      byBarcode.set(p.barcode.trim().toLowerCase(), entry);
+    if (p.sku?.trim()) {
+      bySku.set(p.sku.trim().toLowerCase(), entry);
     }
     byExact.set(p.name.trim().toLowerCase(), entry);
     const norm = normalizeName(p.name);
@@ -204,14 +204,14 @@ async function loadRefData(): Promise<RefData | { error: string }> {
   log.info(
     {
       totalProducts: allProducts.length,
-      withBarcode: byBarcode.size,
+      withSku: bySku.size,
       totalCategories: allCategories.length,
       safetyBuffer,
     },
     "Reference data loaded"
   );
 
-  return { byBarcode, byExact, byNormalized, byCategoryName, safetyBuffer };
+  return { bySku, byExact, byNormalized, byCategoryName, safetyBuffer };
 }
 
 // ── XLSX parser ───────────────────────────────────────────────────────────────
@@ -314,14 +314,14 @@ function matchRow(
   colStock: number,
   ref: RefData
 ): PreviewRow {
-  const vyaparName    = cell(cols, colName);
-  const vyaparBarcode = cell(cols, colBarcode);
+  const vyaparName = cell(cols, colName);
+  const vyaparSku  = cell(cols, colBarcode); // Vyapar "Item code" column → SKU
 
-  // Priority 1 — barcode (Item code)
-  if (vyaparBarcode) {
-    const hit = ref.byBarcode.get(vyaparBarcode.toLowerCase());
+  // Priority 1 — SKU (Item code)
+  if (vyaparSku) {
+    const hit = ref.bySku.get(vyaparSku.toLowerCase());
     if (hit) {
-      return { rowNum, vyaparName, vyaparBarcode, thinkitName: hit.name, matchMethod: "barcode", status: "matched" };
+      return { rowNum, vyaparName, vyaparSku, thinkitName: hit.name, matchMethod: "sku", status: "matched" };
     }
   }
 
@@ -329,7 +329,7 @@ function matchRow(
   if (vyaparName) {
     const hit = ref.byExact.get(vyaparName.toLowerCase());
     if (hit) {
-      return { rowNum, vyaparName, vyaparBarcode, thinkitName: hit.name, matchMethod: "exact", status: "matched" };
+      return { rowNum, vyaparName, vyaparSku, thinkitName: hit.name, matchMethod: "exact", status: "matched" };
     }
   }
 
@@ -339,30 +339,30 @@ function matchRow(
     if (norm) {
       const hit = ref.byNormalized.get(norm);
       if (hit) {
-        return { rowNum, vyaparName, vyaparBarcode, thinkitName: hit.name, matchMethod: "normalized", status: "matched" };
+        return { rowNum, vyaparName, vyaparSku, thinkitName: hit.name, matchMethod: "normalized", status: "matched" };
       }
     }
   }
 
   // No match — explain why
   let notFoundReason: string;
-  if (!vyaparBarcode && !vyaparName) {
-    notFoundReason = "Both name and barcode are empty";
-  } else if (vyaparBarcode && !ref.byBarcode.has(vyaparBarcode.toLowerCase())) {
+  if (!vyaparSku && !vyaparName) {
+    notFoundReason = "Both name and SKU are empty";
+  } else if (vyaparSku && !ref.bySku.has(vyaparSku.toLowerCase())) {
     notFoundReason = vyaparName
-      ? `Item code "${vyaparBarcode}" not in Thinkit; name "${vyaparName}" also unmatched`
-      : `Item code "${vyaparBarcode}" not found in Thinkit`;
+      ? `SKU "${vyaparSku}" not in Thinkit; name "${vyaparName}" also unmatched`
+      : `SKU "${vyaparSku}" not found in Thinkit`;
   } else {
     notFoundReason = `Name "${vyaparName}" not found in Thinkit (tried exact + normalized)`;
   }
 
   const rawStock = cell(cols, colStock);
-  log.warn({ rowNum, vyaparName, vyaparBarcode, rawStock, notFoundReason }, "Row not matched");
+  log.warn({ rowNum, vyaparName, vyaparSku, rawStock, notFoundReason }, "Row not matched");
 
   return {
     rowNum,
     vyaparName,
-    vyaparBarcode,
+    vyaparSku,
     thinkitName: null,
     matchMethod: null,
     status: "not_found",
@@ -461,11 +461,11 @@ router.post(
       const cols   = dataRows[i] as unknown[];
       const rowNum = i + 2;
 
-      const rawName    = cell(cols, colName);
-      const rawBarcode = cell(cols, colBarcode);
+      const rawName = cell(cols, colName);
+      const rawSku  = cell(cols, colBarcode);
 
-      if (!rawName && !rawBarcode) { skippedBlank++; continue; }
-      if (/^[-=*_]{2,}$/.test(rawName) || /^[-=*_]{2,}$/.test(rawBarcode)) { skippedBlank++; continue; }
+      if (!rawName && !rawSku) { skippedBlank++; continue; }
+      if (/^[-=*_]{2,}$/.test(rawName) || /^[-=*_]{2,}$/.test(rawSku)) { skippedBlank++; continue; }
 
       try {
         previewRows.push(matchRow(cols, rowNum, colName, colBarcode, colStock, ref));
@@ -474,7 +474,7 @@ router.post(
         previewRows.push({
           rowNum,
           vyaparName: rawName,
-          vyaparBarcode: rawBarcode,
+          vyaparSku: rawSku,
           thinkitName: null,
           matchMethod: null,
           status: "not_found",
@@ -560,11 +560,11 @@ router.post(
       const cols   = dataRows[i] as unknown[];
       const rowNum = i + 2;
 
-      const rawName    = cell(cols, colName);
-      const rawBarcode = cell(cols, colBarcode);
+      const rawName = cell(cols, colName);
+      const rawSku  = cell(cols, colBarcode);
 
-      if (!rawName && !rawBarcode) { skippedBlank++; continue; }
-      if (/^[-=*_]{2,}$/.test(rawName) || /^[-=*_]{2,}$/.test(rawBarcode)) { skippedBlank++; continue; }
+      if (!rawName && !rawSku) { skippedBlank++; continue; }
+      if (/^[-=*_]{2,}$/.test(rawName) || /^[-=*_]{2,}$/.test(rawSku)) { skippedBlank++; continue; }
 
       try {
         const matched = matchRow(cols, rowNum, colName, colBarcode, colStock, ref);
@@ -576,8 +576,8 @@ router.post(
 
         // Find the product ID from the match maps
         let productId: number | undefined;
-        if (matched.matchMethod === "barcode" && rawBarcode) {
-          productId = ref.byBarcode.get(rawBarcode.toLowerCase())?.id;
+        if (matched.matchMethod === "sku" && rawSku) {
+          productId = ref.bySku.get(rawSku.toLowerCase())?.id;
         }
         if (!productId && rawName) {
           productId = ref.byExact.get(rawName.toLowerCase())?.id
@@ -598,8 +598,8 @@ router.post(
         const stockQty = parseInt(rawStock.replace(/[^0-9-]/g, ""), 10);
 
         if (isNaN(stockQty) || stockQty < 0) {
-          errors.push({ row: rowNum, name: rawName || rawBarcode, reason: `Invalid stock value: "${rawStock}"` });
-          log.warn({ rowNum, rawName, rawStock }, "Invalid stock value — row skipped");
+          errors.push({ row: rowNum, name: rawName || rawSku, reason: `Invalid stock value: "${rawStock}"` });
+          log.warn({ rowNum, rawName, rawSku, rawStock }, "Invalid stock value — row skipped");
           continue;
         }
 
@@ -631,10 +631,10 @@ router.post(
       } catch (rowErr) {
         errors.push({
           row: rowNum,
-          name: rawName || rawBarcode || `row ${rowNum}`,
+          name: rawName || rawSku || `row ${rowNum}`,
           reason: rowErr instanceof Error ? rowErr.message : "Unexpected error",
         });
-        log.warn({ rowNum, rawName, rawBarcode, err: rowErr }, "Row processing error — skipped");
+        log.warn({ rowNum, rawName, rawSku, err: rowErr }, "Row processing error — skipped");
       }
     }
 

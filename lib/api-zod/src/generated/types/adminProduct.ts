@@ -20,6 +20,8 @@ export interface AdminProduct {
   weight: string;
   /** @nullable */
   imageUrl?: string | null;
+  /** @nullable */
+  sku?: string | null;
   stockQty: number;
   inStock: boolean;
   enabled: boolean;

@@ -68,7 +68,7 @@ export default function Products() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Search products by name or brand..." 
+              placeholder="Search by name, brand or SKU…" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 bg-muted/50 border-transparent focus-visible:bg-background"
@@ -122,6 +122,11 @@ export default function Products() {
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {product.brand} • {product.weight}
                       </div>
+                      {product.sku && (
+                        <div className="text-[10px] text-muted-foreground/70 font-mono mt-0.5">
+                          SKU: {product.sku}
+                        </div>
+                      )}
                       <div className="flex gap-1 mt-1.5 md:hidden">
                         {product.isBestSeller && <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-accent/20 text-accent-foreground border-transparent">Best Seller</Badge>}
                         {product.isDwarikaSpecial && <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-primary/10 text-primary border-transparent">Special</Badge>}

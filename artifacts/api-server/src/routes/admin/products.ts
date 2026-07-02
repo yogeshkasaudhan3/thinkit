@@ -30,7 +30,11 @@ router.get("/admin/products", requireAdmin, async (req, res): Promise<void> => {
 
   const conditions = [];
   if (q) {
-    conditions.push(or(ilike(productsTable.name, `%${q}%`), ilike(productsTable.brand, `%${q}%`)));
+    conditions.push(or(
+      ilike(productsTable.name,  `%${q}%`),
+      ilike(productsTable.brand, `%${q}%`),
+      ilike(productsTable.sku,   `%${q}%`),
+    ));
   }
   if (category) conditions.push(eq(productsTable.categoryId, category));
   if (typeof inStock === "boolean") conditions.push(eq(productsTable.inStock, inStock));

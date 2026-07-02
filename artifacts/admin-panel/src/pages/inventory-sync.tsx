@@ -13,12 +13,12 @@ import { useToast } from '@/hooks/use-toast';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type MatchMethod = 'barcode' | 'exact' | 'normalized';
+type MatchMethod = 'sku' | 'exact' | 'normalized';
 
 interface PreviewRow {
   rowNum: number;
   vyaparName: string;
-  vyaparBarcode: string;
+  vyaparSku: string;
   thinkitName: string | null;
   matchMethod: MatchMethod | null;
   status: 'matched' | 'not_found';
@@ -105,7 +105,7 @@ function StatBox({
 function MatchBadge({ method }: { method: MatchMethod | null }) {
   if (!method) return null;
   const cfg: Record<MatchMethod, { label: string; cls: string }> = {
-    barcode:    { label: 'Barcode',    cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    sku:        { label: 'SKU',        cls: 'bg-blue-50 text-blue-700 border-blue-200' },
     exact:      { label: 'Exact name', cls: 'bg-primary/10 text-primary border-primary/20' },
     normalized: { label: 'Fuzzy name', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
   };
@@ -119,7 +119,7 @@ function MatchBadge({ method }: { method: MatchMethod | null }) {
 
 const COLUMN_MAP = [
   { vyapar: 'Item name*',             thinkit: 'Product Name (match fallback)' },
-  { vyapar: 'Item code',              thinkit: 'Barcode / SKU (match priority)' },
+  { vyapar: 'Item code',              thinkit: 'SKU / Item Code (match priority 1)' },
   { vyapar: 'Category',               thinkit: 'Category' },
   { vyapar: 'Default Mrp',            thinkit: 'MRP' },
   { vyapar: 'Sale price',             thinkit: 'Selling Price' },
@@ -473,7 +473,7 @@ export default function InventorySync() {
                         <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-foreground truncate">
-                            {r.vyaparName || r.vyaparBarcode || `Row ${r.rowNum}`}
+                            {r.vyaparName || r.vyaparSku || `Row ${r.rowNum}`}
                           </p>
                           {r.notFoundReason && (
                             <p className="text-xs text-amber-700 mt-0.5">{r.notFoundReason}</p>
@@ -488,7 +488,7 @@ export default function InventorySync() {
                       <p className="text-sm font-semibold text-destructive">⚠ No products matched</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         Make sure the Vyapar product names match Thinkit product names (case and spacing don't matter).
-                        If using Item codes, ensure they are entered in the Thinkit product barcode field.
+                        If using Item codes, ensure they are entered in the Thinkit product SKU field.
                       </p>
                     </div>
                   )}
@@ -595,7 +595,7 @@ export default function InventorySync() {
                           <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{r.rowNum}</td>
                           <td className="px-4 py-2.5">
                             <p className="font-medium text-foreground">{r.vyaparName || '—'}</p>
-                            {r.vyaparBarcode && <p className="text-xs text-muted-foreground font-mono">{r.vyaparBarcode}</p>}
+                            {r.vyaparSku && <p className="text-xs text-muted-foreground font-mono">SKU: {r.vyaparSku}</p>}
                           </td>
                           <td className="px-4 py-2.5 text-xs text-amber-700">{r.notFoundReason ?? 'Not in Thinkit'}</td>
                         </tr>

@@ -25,6 +25,7 @@ export interface Product {
   inStock: boolean;
   enabled?: boolean;
   imageUrl?: string | null;
+  sku?: string | null;
   isBestSeller?: boolean;
   isDwarikaSpecial?: boolean;
   /** Legacy field — present on old localStorage cart items only. */
