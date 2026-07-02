@@ -41,7 +41,10 @@ function useSubcategoryOptions(categoryId: string) {
     queryKey: ['/api/admin/categories', categoryId, 'subcategories'],
     queryFn: () =>
       fetch(`/api/admin/categories/${categoryId}/subcategories`, { credentials: 'include' })
-        .then((r) => (r.ok ? r.json() : [])),
+        .then((r) => (r.ok ? r.json() : []))
+        .then((data: Array<{ name: string } | string>) =>
+          data.map((d) => (typeof d === 'string' ? d : d.name)),
+        ),
     enabled: !!categoryId,
   });
 }

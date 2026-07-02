@@ -7,3 +7,4 @@ export * from "./categories";
 export * from "./store-settings";
 export * from "./admin-users";
 export * from "./inventory-sync-logs";
+export * from "./subcategory-definitions";

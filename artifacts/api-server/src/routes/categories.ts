@@ -3,8 +3,8 @@
  * Only active categories are exposed to the customer app.
  */
 import { Router, type IRouter } from "express";
-import { db, categoriesTable, productsTable } from "@workspace/db";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { db, categoriesTable, subcategoryDefinitionsTable } from "@workspace/db";
+import { eq, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -18,34 +18,24 @@ router.get("/categories", async (_req, res): Promise<void> => {
   res.json(cats);
 });
 
-// ── Distinct subcategory values for a category ───────────────────────────────
-// Used by the customer app to build subcategory tab lists dynamically.
+// ── Subcategory definitions for a category (master list) ─────────────────────
+// Returns the canonical subcategory names from the subcategory_definitions table,
+// sorted by display_order. Tabs appear even if no products are assigned yet.
 router.get("/categories/:id/subcategories", async (req, res): Promise<void> => {
-  const id = String(req.params.id ?? "").trim();
-  if (!id) {
+  const catId = parseInt(req.params.id, 10);
+  if (isNaN(catId)) {
     res.status(400).json({ error: "Category id is required" });
     return;
   }
 
   try {
     const rows = await db
-      .selectDistinct({ subcategory: productsTable.subcategory })
-      .from(productsTable)
-      .where(
-        and(
-          eq(productsTable.categoryId, id),
-          isNotNull(productsTable.subcategory),
-          eq(productsTable.enabled, true),
-        ),
-      )
-      .orderBy(productsTable.subcategory);
+      .select()
+      .from(subcategoryDefinitionsTable)
+      .where(eq(subcategoryDefinitionsTable.categoryId, catId))
+      .orderBy(asc(subcategoryDefinitionsTable.displayOrder));
 
-    const subcategories = rows
-      .map((r) => r.subcategory)
-      .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
-      .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-
-    res.json(subcategories);
+    res.json(rows.map((r) => r.name));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch subcategories" });
   }

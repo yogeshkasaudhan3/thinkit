@@ -7,6 +7,7 @@ import bannersRouter from "./banners";
 import categoriesRouter from "./categories";
 import settingsRouter from "./settings";
 import inventorySyncRouter from "./inventory-sync";
+import subcategoriesRouter from "./subcategories";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,7 @@ router.use(ordersRouter);
 router.use(productsRouter);
 router.use(bannersRouter);
 router.use(categoriesRouter);
+router.use(subcategoriesRouter);
 router.use(settingsRouter);
 router.use(inventorySyncRouter);
 

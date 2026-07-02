@@ -5,6 +5,7 @@ import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { ProductCard } from './HomePage';
 import { useProducts } from '../lib/useProducts';
+import { useQuery } from '@tanstack/react-query';
 
 /** Fetches the category name from the public categories API. */
 function useCategoryInfo(id: string | undefined) {
@@ -46,14 +47,15 @@ export default function SubcategoryPage() {
     categoryId ? { categoryId } : undefined,
   );
 
-  // Derive subcategory tabs from actual product data — sorted case-insensitively
-  const subcategories = useMemo(() => {
-    const seen = new Set<string>();
-    for (const p of categoryProducts) {
-      if (p.subcategory && p.subcategory.trim()) seen.add(p.subcategory.trim());
-    }
-    return [...seen].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-  }, [categoryProducts]);
+  // Fetch canonical subcategory list from the master table — tabs always match
+  // the defined subcategories, even before products are assigned to them.
+  const { data: subcategories = [] } = useQuery<string[]>({
+    queryKey: ['/api/categories', categoryId, 'subcategories'],
+    queryFn: () =>
+      fetch(`/api/categories/${categoryId}/subcategories`, { credentials: 'include' })
+        .then((r) => (r.ok ? r.json() : [])),
+    enabled: !!categoryId,
+  });
 
   // Keep activeSubcat in sync with the current category + loaded subcategories.
   // Order matters: reset on category change first, then auto-select from derived list.

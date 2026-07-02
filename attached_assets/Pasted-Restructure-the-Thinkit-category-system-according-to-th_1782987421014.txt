@@ -1,0 +1,109 @@
+Restructure the Thinkit category system according to the following final business hierarchy.
+
+Requirements:
+
+1. Create all main categories and subcategories exactly as listed below.
+
+2. The Admin Panel must support:
+- Adding new categories
+- Editing category names
+- Adding category cover images
+- Adding new subcategories
+- Editing subcategories
+- Assigning products to both a main category and a subcategory
+
+3. The Customer App must:
+- Show only main categories on the Categories page.
+- When a customer clicks a main category, show horizontal subcategory tabs.
+- Clicking a subcategory should filter products instantly without reloading the page.
+- If no products exist, show:
+  "No products available in this section."
+
+4. The system must be mobile responsive and optimized for quick-commerce UX.
+
+FINAL CATEGORY STRUCTURE:
+
+1. Atta, Rice & Dal
+- Atta
+- Rice
+- Dal
+- Poha & Dalia
+- Millets
+- Besan & Flours
+- Sattu
+
+2. Oil, Ghee & Masala
+- Edible Oils
+- Desi Ghee
+- Whole Spices
+- Ground Spices
+- Dwarika Special Masale
+
+3. Dairy & Bread
+- Milk
+- Curd & Paneer
+- Butter & Cheese
+- Bread & Bakery
+
+4. Biscuits & Snacks
+- Biscuits
+- Namkeen
+- Chips
+- Chocolates
+- Cookies
+
+5. Cold Drinks & Beverages
+- Soft Drinks
+- Juices
+- Tea
+- Coffee
+- Health Drinks
+
+6. Personal Care
+- Soaps
+- Shampoos
+- Oral Care
+- Skin Care
+- Hair Oil
+- Deodorants & Perfumes
+
+7. Home Care
+- Detergents
+- Floor Cleaners
+- Dishwash
+- Cleaning Tools
+- Garbage Bags
+- Air Fresheners
+
+8. Baby Care
+- Diapers
+- Baby Food
+- Baby Toiletries
+- Baby Wipes
+
+9. Frozen Food
+- Frozen Snacks
+- Ice Cream
+
+10. Dry Fruits
+- Almonds (Badam)
+- Cashews (Kaju)
+- Raisins (Kishmish)
+- Pistachios (Pista)
+- Mixed Dry Fruits
+- Seeds (Chia, Flax, Pumpkin, Sunflower)
+
+11. Dwarika Specials
+- Dwarika Masale
+- Dwarika Dry Fruits
+- Dwarika Pulses
+- Dwarika Atta
+- Dwarika Homemade Products
+
+Additional Requirements:
+
+- Auto-create these categories and subcategories in the database.
+- Existing products should remain safe during migration.
+- Admin should be able to change category images directly from the admin panel.
+- Future categories and subcategories should be manageable without code changes.
+- Product cards and filters should work correctly with the new category hierarchy.
