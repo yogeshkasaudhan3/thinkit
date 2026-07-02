@@ -15,6 +15,7 @@ description: POST /api/admin/products/vyapar-import; creates and updates product
 - `weight` → `""` (notNull field)
 - `imageUrl` → `null` (admin adds images manually later)
 - `categoryId` → `String(category.id)` (matching existing convention; `"0"` if no category)
+- `subcategory` → NOT mapped yet (Vyapar XLSX has no subcategory column; follow-up task planned)
 
 ## Auto-category creation
 - Per-import `newCatCache` Map prevents duplicate inserts for same category name in one run

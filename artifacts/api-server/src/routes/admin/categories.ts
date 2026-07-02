@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, categoriesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, categoriesTable, productsTable } from "@workspace/db";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/requireAdmin";
 
 const router: IRouter = Router();
@@ -76,6 +76,38 @@ router.patch("/admin/categories/:id", requireAdmin, async (req, res): Promise<vo
     return;
   }
   res.json(serialize(cat));
+});
+
+// ── Distinct subcategory values for a category (admin) ───────────────────────
+router.get("/admin/categories/:id/subcategories", requireAdmin, async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = String(rawId ?? "").trim();
+  if (!id) {
+    res.status(400).json({ error: "Category id is required" });
+    return;
+  }
+
+  try {
+    const rows = await db
+      .selectDistinct({ subcategory: productsTable.subcategory })
+      .from(productsTable)
+      .where(
+        and(
+          eq(productsTable.categoryId, id),
+          isNotNull(productsTable.subcategory),
+        ),
+      )
+      .orderBy(productsTable.subcategory);
+
+    const subcategories = rows
+      .map((r) => r.subcategory)
+      .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+      .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+    res.json(subcategories);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch subcategories" });
+  }
 });
 
 // ── Delete category ──────────────────────────────────────────────────────────

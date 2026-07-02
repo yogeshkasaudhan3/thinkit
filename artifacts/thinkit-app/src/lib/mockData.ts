@@ -16,6 +16,7 @@ export interface Category {
 export interface Product {
   id: string;
   categoryId: string;
+  subcategory?: string | null;
   brand: string;
   name: string;
   weight: string;

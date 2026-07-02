@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -32,6 +32,17 @@ function useAdminCategoryList() {
     queryFn: () =>
       fetch('/api/admin/categories', { credentials: 'include' })
         .then((r) => (r.ok ? r.json() : [])),
+  });
+}
+
+/** Returns distinct subcategory values already assigned to products in a given category. */
+function useSubcategoryOptions(categoryId: string) {
+  return useQuery<string[]>({
+    queryKey: ['/api/admin/categories', categoryId, 'subcategories'],
+    queryFn: () =>
+      fetch(`/api/admin/categories/${categoryId}/subcategories`, { credentials: 'include' })
+        .then((r) => (r.ok ? r.json() : [])),
+    enabled: !!categoryId,
   });
 }
 
@@ -122,6 +133,38 @@ export default function ProductForm() {
       });
     }
   }, [product, isNew, form]);
+
+  // ── Subcategory smart select ────────────────────────────────────────────────
+  // 'select' = pick from dropdown of known values; 'custom' = free-text input
+  const [subcatMode, setSubcatMode] = useState<'select' | 'custom'>('select');
+  const watchedCategoryId = form.watch('categoryId');
+  const prevCategoryIdRef = useRef<string>('');
+
+  const { data: subcategoryOptions = [] } = useSubcategoryOptions(watchedCategoryId);
+
+  // Reset subcategory when the admin picks a different category (not on initial load)
+  useEffect(() => {
+    const prev = prevCategoryIdRef.current;
+    prevCategoryIdRef.current = watchedCategoryId;
+    if (prev && prev !== watchedCategoryId) {
+      form.setValue('subcategory', '');
+      setSubcatMode('select');
+    }
+  }, [watchedCategoryId, form]);
+
+  // When editing an existing product: if its subcategory isn't in the options
+  // list (whether options are empty or loaded), switch to custom mode so the
+  // value is preserved and visible. Guard only on product to avoid running
+  // before the form is pre-filled.
+  useEffect(() => {
+    if (!isNew && product) {
+      const current = form.getValues('subcategory') ?? '';
+      if (current && !subcategoryOptions.includes(current)) {
+        setSubcatMode('custom');
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subcategoryOptions, product]);
 
   const onSubmit = (values: ProductFormValues) => {
     if (isNew) {
@@ -290,9 +333,58 @@ export default function ProductForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Subcategory (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Whole Wheat" {...field} />
-                    </FormControl>
+                    {subcatMode === 'select' ? (
+                      <Select
+                        value={field.value || '__none__'}
+                        onValueChange={(val) => {
+                          if (val === '__custom__') {
+                            setSubcatMode('custom');
+                            field.onChange('');
+                          } else if (val === '__none__') {
+                            field.onChange('');
+                          } else {
+                            field.onChange(val);
+                          }
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a subcategory" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">— None —</SelectItem>
+                          {subcategoryOptions.map((opt) => (
+                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                          ))}
+                          <SelectItem value="__custom__">✏️ Type a custom value…</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input placeholder="e.g. Poha & Dalia" {...field} />
+                        </FormControl>
+                        {subcategoryOptions.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSubcatMode('select')}
+                            className="shrink-0"
+                          >
+                            Pick from list
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    <FormDescription>
+                      {!watchedCategoryId
+                        ? 'Select a category first.'
+                        : subcategoryOptions.length === 0
+                        ? 'No subcategories set for this category yet — type a custom value.'
+                        : 'Groups products within a category (e.g. Atta, Rice, Millets).'}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
