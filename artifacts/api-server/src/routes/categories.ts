@@ -35,7 +35,7 @@ router.get("/categories/:id/subcategories", async (req, res): Promise<void> => {
       .where(eq(subcategoryDefinitionsTable.categoryId, catId))
       .orderBy(asc(subcategoryDefinitionsTable.displayOrder));
 
-    res.json(rows.map((r) => r.name));
+    res.json(rows.map((r) => ({ id: r.id, name: r.name, imageUrl: r.imageUrl ?? null })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch subcategories" });
   }

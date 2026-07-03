@@ -1,14 +1,13 @@
-import { useState, Fragment } from 'react';
+import { useState, useRef, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Loader2, Pencil, Trash2, Image as ImageIcon, Upload, X,
-  GripVertical, ChevronDown, ChevronRight, Tag, Check,
+  GripVertical, ChevronDown, ChevronRight, Tag, Check, Camera,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -31,6 +30,7 @@ interface SubcategoryDefinition {
   id: number;
   categoryId: number;
   name: string;
+  imageUrl: string | null;
   displayOrder: number;
 }
 
@@ -122,11 +122,17 @@ function useCreateSubcategory(categoryId: number) {
 function useUpdateSubcategory(categoryId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) =>
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: { name?: string; imageUrl?: string | null };
+    }) =>
       adminFetch(`/api/admin/subcategories/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(data),
       }),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['/api/admin/categories', categoryId, 'subcategories'] }),
@@ -143,45 +149,177 @@ function useDeleteSubcategory(categoryId: number) {
   });
 }
 
+// ── Helper ────────────────────────────────────────────────────────────────────
+
+function bgFromName(name: string): string {
+  const palette = [
+    '#FEF9C3', '#FFF7ED', '#FEF3C7', '#F0FDF4', '#FDF4FF',
+    '#FFF1F2', '#F0F9FF', '#F5F3FF', '#EFF6FF', '#FDF2F8',
+  ];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return palette[Math.abs(h) % palette.length];
+}
+
+// ── SubcategoryRow ────────────────────────────────────────────────────────────
+// One row per subcategory: 52×52 image thumbnail (click to upload) + name + actions.
+
+function SubcategoryRow({
+  sub,
+  onUpdate,
+  onDelete,
+}: {
+  sub: SubcategoryDefinition;
+  onUpdate: (id: number, data: { name?: string; imageUrl?: string | null }) => void;
+  onDelete: (sub: SubcategoryDefinition) => void;
+}) {
+  const { uploadFile, isUploading, progress } = useUpload();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameVal, setNameVal] = useState(sub.name);
+
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const result = await uploadFile(file);
+    if (result) onUpdate(sub.id, { imageUrl: `/api/storage${result.objectPath}` });
+  };
+
+  const saveName = () => {
+    const trimmed = nameVal.trim();
+    if (trimmed && trimmed !== sub.name) onUpdate(sub.id, { name: trimmed });
+    else setNameVal(sub.name);
+    setEditingName(false);
+  };
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border/60 bg-background hover:bg-muted/20 group transition-colors">
+
+      {/* Image thumbnail — click anywhere on it to upload */}
+      <div
+        className="relative shrink-0 cursor-pointer"
+        onClick={() => fileRef.current?.click()}
+        title="Click to upload image"
+      >
+        <div
+          className="h-[52px] w-[52px] rounded-xl overflow-hidden flex items-center justify-center text-lg font-bold text-gray-500 border border-border/60"
+          style={{ background: bgFromName(sub.name) }}
+        >
+          {sub.imageUrl ? (
+            <img src={sub.imageUrl} alt={sub.name} className="h-full w-full object-cover" />
+          ) : (
+            <span>{sub.name.slice(0, 1).toUpperCase()}</span>
+          )}
+        </div>
+        {/* Upload overlay — appears on row hover */}
+        <div className="absolute inset-0 rounded-xl bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          {isUploading ? (
+            <span className="text-white text-[10px] font-bold leading-none">{progress}%</span>
+          ) : (
+            <Camera className="h-3.5 w-3.5 text-white" />
+          )}
+        </div>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        disabled={isUploading}
+        onChange={handleImageFile}
+      />
+
+      {/* Name — click to rename inline */}
+      {editingName ? (
+        <Input
+          autoFocus
+          value={nameVal}
+          onChange={(e) => setNameVal(e.target.value)}
+          onKeyDown={(e) => {
+            // Blur on Enter so only the onBlur handler fires saveName (prevents double-submit).
+            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'Escape') { setNameVal(sub.name); setEditingName(false); }
+          }}
+          onBlur={saveName}
+          className="h-8 text-sm flex-1 max-w-[200px]"
+        />
+      ) : (
+        <span
+          className="text-sm font-medium text-foreground flex-1 cursor-pointer hover:text-primary transition-colors"
+          onClick={() => { setEditingName(true); setNameVal(sub.name); }}
+          title="Click to rename"
+        >
+          {sub.name}
+        </span>
+      )}
+
+      {/* Actions — fade in on hover */}
+      <div className="flex items-center gap-0.5 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        {sub.imageUrl && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={() => onUpdate(sub.id, { imageUrl: null })}
+            title="Remove image"
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          onClick={() => { setEditingName(true); setNameVal(sub.name); }}
+          title="Rename"
+        >
+          <Pencil className="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-destructive hover:bg-destructive/10"
+          onClick={() => onDelete(sub)}
+          title="Delete"
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── SubcategoryManager ────────────────────────────────────────────────────────
 
 function SubcategoryManager({ categoryId }: { categoryId: number }) {
   const { data: subcategories = [], isLoading, isError } = useSubcategoryDefinitions(categoryId);
   const { mutate: createSub, isPending: isCreating } = useCreateSubcategory(categoryId);
-  const { mutate: updateSub, isPending: isUpdating } = useUpdateSubcategory(categoryId);
+  const { mutate: updateSub } = useUpdateSubcategory(categoryId);
   const { mutate: deleteSub } = useDeleteSubcategory(categoryId);
   const { toast } = useToast();
 
   const [newName, setNewName] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingName, setEditingName] = useState('');
 
   const handleAdd = () => {
     const name = newName.trim();
     if (!name) return;
-    const nextOrder = subcategories.length > 0
-      ? Math.max(...subcategories.map((s) => s.displayOrder)) + 10
-      : 10;
+    const nextOrder =
+      subcategories.length > 0
+        ? Math.max(...subcategories.map((s) => s.displayOrder)) + 10
+        : 10;
     createSub({ name, displayOrder: nextOrder }, {
-      onSuccess: () => {
-        setNewName('');
-        toast({ title: `"${name}" added` });
-      },
+      onSuccess: () => { setNewName(''); toast({ title: `"${name}" added` }); },
       onError: (err: any) =>
         toast({ title: 'Failed to add', description: err.message, variant: 'destructive' }),
     });
   };
 
-  const handleEditSave = (id: number) => {
-    const name = editingName.trim();
-    if (!name) return;
-    updateSub({ id, name }, {
-      onSuccess: () => {
-        setEditingId(null);
-        toast({ title: 'Subcategory updated' });
-      },
+  const handleUpdate = (id: number, data: { name?: string; imageUrl?: string | null }) => {
+    updateSub({ id, data }, {
+      onSuccess: () => toast({ title: 'Saved' }),
       onError: (err: any) =>
-        toast({ title: 'Failed to update', description: err.message, variant: 'destructive' }),
+        toast({ title: 'Failed to save', description: err.message, variant: 'destructive' }),
     });
   };
 
@@ -211,71 +349,36 @@ function SubcategoryManager({ categoryId }: { categoryId: number }) {
   }
 
   return (
-    <div className="px-6 py-4 bg-muted/20 border-t border-border/60">
+    <div className="px-4 py-4 bg-muted/10 border-t border-border/60">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
-        <Tag className="h-3 w-3" /> Subcategories
+        <Tag className="h-3 w-3" /> Subcategories ({subcategories.length})
       </p>
 
-      {/* Existing subcategories */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {subcategories.map((sub) =>
-          editingId === sub.id ? (
-            <div key={sub.id} className="flex items-center gap-1 bg-background border border-primary rounded-full px-2 py-0.5 shadow-sm">
-              <Input
-                autoFocus
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleEditSave(sub.id);
-                  if (e.key === 'Escape') setEditingId(null);
-                }}
-                className="h-6 w-28 text-xs border-none shadow-none focus-visible:ring-0 px-1"
-              />
-              <button
-                onClick={() => handleEditSave(sub.id)}
-                disabled={isUpdating}
-                className="text-primary hover:text-primary/70"
-              >
-                <Check className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <Badge
+      {/* Subcategory rows */}
+      <div className="flex flex-col gap-2 mb-3">
+        {subcategories.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic px-1">
+            No subcategories yet. Add one below.
+          </p>
+        ) : (
+          subcategories.map((sub) => (
+            <SubcategoryRow
               key={sub.id}
-              variant="secondary"
-              className="group flex items-center gap-1 pr-1 pl-3 py-1 rounded-full text-xs font-medium cursor-default"
-            >
-              {sub.name}
-              <button
-                onClick={() => { setEditingId(sub.id); setEditingName(sub.name); }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground ml-0.5"
-              >
-                <Pencil className="h-3 w-3" />
-              </button>
-              <button
-                onClick={() => handleDelete(sub)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ),
-        )}
-        {subcategories.length === 0 && (
-          <p className="text-xs text-muted-foreground italic">No subcategories yet.</p>
+              sub={sub}
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
+            />
+          ))
         )}
       </div>
 
-      {/* Add new subcategory */}
-      <div className="flex items-center gap-2 mt-1">
+      {/* Add new */}
+      <div className="flex items-center gap-2 pt-3 border-t border-border/40">
         <Input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          placeholder="Add subcategory…"
+          placeholder="New subcategory name…"
           className="h-8 text-sm max-w-[220px]"
           disabled={isCreating}
         />

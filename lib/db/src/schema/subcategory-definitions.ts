@@ -7,6 +7,7 @@ export const subcategoryDefinitionsTable = pgTable("subcategory_definitions", {
     .notNull()
     .references(() => categoriesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  imageUrl: text("image_url"),
   displayOrder: integer("display_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })

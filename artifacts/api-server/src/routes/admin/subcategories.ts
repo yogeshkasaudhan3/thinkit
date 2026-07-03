@@ -53,9 +53,12 @@ router.post(
     const displayOrder =
       typeof body.displayOrder === "number" ? body.displayOrder : 0;
 
+    const imageUrl =
+      typeof body.imageUrl === "string" ? body.imageUrl || null : null;
+
     const [row] = await db
       .insert(subcategoryDefinitionsTable)
-      .values({ categoryId: catId, name, displayOrder })
+      .values({ categoryId: catId, name, displayOrder, imageUrl })
       .returning();
 
     res.status(201).json(serialize(row));
@@ -80,6 +83,10 @@ router.patch(
     }
     if (typeof body.displayOrder === "number") {
       updates.displayOrder = body.displayOrder;
+    }
+    if ("imageUrl" in body) {
+      updates.imageUrl =
+        typeof body.imageUrl === "string" ? body.imageUrl || null : null;
     }
 
     const [row] = await db
