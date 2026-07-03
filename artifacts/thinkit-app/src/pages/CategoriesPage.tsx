@@ -49,6 +49,8 @@ export default function CategoriesPage() {
                       <img
                         src={cat.imageUrl}
                         alt={cat.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                     ) : cat.emoji ? (

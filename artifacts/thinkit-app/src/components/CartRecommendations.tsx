@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { cloudinaryOpt } from '../lib/imgUtils';
 import { Plus, Truck, Sparkles, ShoppingBag } from 'lucide-react';
 import type { Product } from '../lib/mockData';
 import { useApp } from '../context/AppContext';
@@ -36,8 +37,10 @@ function RecoCard({ product }: { product: Product }) {
       >
         {product.imageUrl ? (
           <img
-            src={product.imageUrl}
+            src={cloudinaryOpt(product.imageUrl, 200) ?? product.imageUrl}
             alt={product.name}
+            loading="lazy"
+            decoding="async"
             className="w-14 h-14 object-contain rounded-full"
           />
         ) : (

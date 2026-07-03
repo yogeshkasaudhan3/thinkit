@@ -1,4 +1,5 @@
 import { useRoute } from 'wouter';
+import { cloudinaryOpt } from '../lib/imgUtils';
 import { motion } from 'framer-motion';
 import { Star, Clock, ShieldCheck, Plus, Minus } from 'lucide-react';
 import AppHeader from '../components/AppHeader';
@@ -53,8 +54,10 @@ export default function ProductDetailPage() {
         >
           {product.imageUrl ? (
             <img
-              src={product.imageUrl}
+              src={cloudinaryOpt(product.imageUrl, 600) ?? product.imageUrl}
               alt={product.name}
+              loading="lazy"
+              decoding="async"
               className="w-40 h-40 object-contain"
             />
           ) : (

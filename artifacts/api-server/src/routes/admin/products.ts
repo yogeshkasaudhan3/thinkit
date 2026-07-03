@@ -161,7 +161,10 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res): Promise<void
   const body = UpdateAdminProductBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const patch = { ...body.data, updatedAt: new Date() };
-  if ("subcategory" in patch) patch.subcategory = normalizeSubcategory(patch.subcategory as string | null | undefined);
+  if ("subcategory" in patch) {
+    const norm = normalizeSubcategory(patch.subcategory as string | null | undefined);
+    patch.subcategory = norm ?? undefined;
+  }
   const [product] = await db
     .update(productsTable)
     .set(patch)

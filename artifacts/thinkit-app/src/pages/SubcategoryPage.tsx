@@ -76,7 +76,9 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
         borderRadius: 14,
         overflow: 'hidden',
         background: bgFromName(sub.name),
-        border: active ? '2px solid #16A34A' : '1.5px solid #E5E7EB',
+        borderWidth: active ? 2 : 1.5,
+        borderStyle: 'solid',
+        borderColor: active ? '#16A34A' : '#E5E7EB',
         boxShadow: active
           ? '0 2px 8px rgba(22,163,74,0.20)'
           : '0 1px 3px rgba(0,0,0,0.06)',
@@ -91,6 +93,8 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
         <img
           src={sub.imageUrl}
           alt={sub.name}
+          loading="lazy"
+          decoding="async"
           onError={() => setImgErr(true)}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { motion } from 'framer-motion';
 import useEmblaCarousel from 'embla-carousel-react';
@@ -10,6 +10,7 @@ import { CATEGORY_COLORS, type Product } from '../lib/mockData';
 import { useProducts } from '../lib/useProducts';
 import { useBanners } from '../lib/useBanners';
 import { useCategories } from '../lib/useCategories';
+import { cloudinaryOpt } from '../lib/imgUtils';
 
 // ── Fallback icons for categories (used when no image/emoji is set) ───────────
 const CATEGORY_ICONS: Record<string, { Icon: React.ElementType; bg: string; color: string }> = {
@@ -26,6 +27,9 @@ const CATEGORY_ICONS: Record<string, { Icon: React.ElementType; bg: string; colo
 export function ProductCard({ product }: { product: Product }) {
   const [, setLocation] = useLocation();
   const { cart, addToCart, updateQty } = useApp();
+  // Track image load state to show a skeleton while loading.
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const cartItem = cart.find(c => c.product.id === product.id);
   const qty = cartItem ? cartItem.qty : 0;
@@ -40,6 +44,14 @@ export function ProductCard({ product }: { product: Product }) {
     updateQty(product.id, newQty);
   };
 
+  const optimisedSrc = cloudinaryOpt(product.imageUrl, 400);
+
+  // Reset load/error state whenever the image source changes (e.g. admin re-uploads).
+  useEffect(() => {
+    setImgLoaded(false);
+    setImgError(false);
+  }, [optimisedSrc]);
+
   return (
     <div
       onClick={() => setLocation(`/product/${product.id}`)}
@@ -51,17 +63,35 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
       )}
 
-      {/* Image area — white background, object-contain, 60% of card */}
-      <div className="h-[150px] w-full bg-white flex items-center justify-center p-3 border-b border-gray-100">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-contain"
-            draggable={false}
-          />
+      {/* Image area — fixed 150 × full-width, object-contain, skeleton while loading */}
+      <div className="relative w-full bg-white border-b border-gray-100" style={{ height: 150 }}>
+        {optimisedSrc && !imgError ? (
+          <>
+            {/* Shimmer skeleton — visible until the image finishes loading */}
+            {!imgLoaded && (
+              <div className="absolute inset-0 bg-gray-100 animate-pulse rounded-t-xl" />
+            )}
+            <img
+              src={optimisedSrc}
+              alt={product.name}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => { setImgError(true); setImgLoaded(true); }}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                padding: 12,
+                opacity: imgLoaded ? 1 : 0,
+                transition: 'opacity 0.2s ease',
+              }}
+            />
+          </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-center text-[11px] font-semibold text-gray-400">
+          /* No image or broken image — text fallback */
+          <div className="w-full h-full flex items-center justify-center p-3 text-center text-[11px] font-semibold text-gray-400">
             {product.brand || product.name}
           </div>
         )}
@@ -126,7 +156,7 @@ function CategoryTile({ cat }: { cat: { id: number; name: string; emoji: string 
         style={{ backgroundColor: style ? style.bg : '#F3F4F6' }}
       >
         {cat.imageUrl ? (
-          <img src={cat.imageUrl} alt={cat.name} className="w-full h-full object-cover" />
+          <img src={cat.imageUrl} alt={cat.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : cat.emoji ? (
           <span className="text-3xl">{cat.emoji}</span>
         ) : style ? (
@@ -205,12 +235,19 @@ export default function HomePage() {
       <div className="px-4 py-5 overflow-hidden">
         <div className="overflow-hidden rounded-2xl" ref={emblaRef}>
           <div className="flex">
-            {displayBanners.map((slide) => (
+            {displayBanners.map((slide, idx) => (
               <div key={slide.id} className="flex-[0_0_100%] min-w-0">
                 {slide.imageUrl ? (
-                  /* Image banner */
+                  /* Image banner — first slide is eager for LCP; rest are lazy */
                   <div className="relative h-36 rounded-2xl overflow-hidden bg-gray-100">
-                    <img src={slide.imageUrl} alt={slide.title} className="w-full h-full object-cover" />
+                    <img
+                      src={slide.imageUrl}
+                      alt={slide.title}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent flex flex-col justify-center p-6">
                       <h2 className="text-white font-bold text-2xl mb-1">{slide.title}</h2>
                       {slide.subtitle && <p className="text-white text-sm opacity-90 mb-3">{slide.subtitle}</p>}

@@ -89,8 +89,11 @@ export class ObjectStorageService {
   }
 
   async downloadObject(
+    // Product/subcategory images are UUID-keyed and never mutate in place,
+    // so a long TTL with `immutable` is safe and dramatically reduces
+    // repeated downloads on mobile networks.
     file: File,
-    cacheTtlSec: number = 3600,
+    cacheTtlSec: number = 31_536_000, // 1 year
   ): Promise<Response> {
     const [metadata] = await file.getMetadata();
     const aclPolicy = await getObjectAclPolicy(file);
@@ -102,7 +105,9 @@ export class ObjectStorageService {
     const headers: Record<string, string> = {
       'Content-Type':
         (metadata.contentType as string) || 'application/octet-stream',
-      'Cache-Control': `${isPublic ? 'public' : 'private'}, max-age=${cacheTtlSec}`,
+      // `immutable` tells browsers the resource will never change at this URL
+      // (safe because uploaded objects use UUID paths and are never overwritten).
+      'Cache-Control': `${isPublic ? 'public' : 'private'}, max-age=${cacheTtlSec}, immutable`,
     };
     if (metadata.size) {
       headers['Content-Length'] = String(metadata.size);
@@ -267,6 +272,6 @@ async function signObjectURL({
     );
   }
 
-  const { signed_url: signedURL } = await response.json();
+  const { signed_url: signedURL } = (await response.json()) as { signed_url: string };
   return signedURL;
 }
