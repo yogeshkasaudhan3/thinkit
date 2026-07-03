@@ -25,6 +25,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { adminFetch } from '@/lib/admin-fetch';
 
+// ── Subcategory normalisation (mirrors server logic) ──────────────────────────
+function titleCase(s: string): string {
+  return s.trim().replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 // ── Category / subcategory helpers ────────────────────────────────────────────
 
 function useAdminCategoryList() {
@@ -452,16 +457,42 @@ export default function ProductForm() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <div className="flex gap-2">
-                        <FormControl>
-                          <Input placeholder="e.g. Poha & Dalia" {...field} />
-                        </FormControl>
-                        {subcategoryOptions.length > 0 && (
-                          <Button type="button" variant="outline" size="sm" onClick={() => setSubcatMode('select')} className="shrink-0">
-                            Pick from list
-                          </Button>
-                        )}
-                      </div>
+                      <>
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input placeholder="e.g. Poha & Dalia" {...field} />
+                          </FormControl>
+                          {subcategoryOptions.length > 0 && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => setSubcatMode('select')} className="shrink-0">
+                              Pick from list
+                            </Button>
+                          )}
+                        </div>
+                        {/* Case-mismatch hint */}
+                        {(() => {
+                          const typed = field.value?.trim() ?? '';
+                          if (!typed) return null;
+                          const normalized = titleCase(typed);
+                          const existingMatch = subcategoryOptions.find(
+                            (opt) => opt.toLowerCase() === typed.toLowerCase(),
+                          );
+                          if (existingMatch && existingMatch !== typed) {
+                            return (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                Matches existing subcategory <strong>"{existingMatch}"</strong> — will be saved as "{existingMatch}".
+                              </p>
+                            );
+                          }
+                          if (!existingMatch && normalized !== typed) {
+                            return (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Will be saved as <strong>"{normalized}"</strong>.
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </>
                     )}
                     <FormDescription>
                       {!watchedCategoryId

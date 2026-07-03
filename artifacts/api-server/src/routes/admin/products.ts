@@ -15,6 +15,17 @@ import {
 
 const router: IRouter = Router();
 
+// ── Subcategory normaliser ───────────────────────────────────────────────────
+// Trims whitespace and title-cases the value so "rice", "RICE", and " Rice "
+// all resolve to "Rice". Returns null for blank/absent values.
+export function normalizeSubcategory(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  // Title-case: capitalise first letter of each word, lowercase the rest.
+  return trimmed.replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 // ── Shared WHERE clause builder ─────────────────────────────────────────────
 
 function buildConditions(query: Record<string, unknown>, includeInStock = true) {
@@ -108,11 +119,12 @@ router.post("/admin/products/bulk", requireAdmin, async (req, res): Promise<void
         .from(productsTable)
         .where(and(eq(productsTable.name, p.name), eq(productsTable.brand, p.brand)));
 
+      const normalizedP = { ...p, subcategory: normalizeSubcategory(p.subcategory as string | null | undefined) };
       if (existing) {
-        await db.update(productsTable).set({ ...p, updatedAt: new Date() }).where(eq(productsTable.id, existing.id));
+        await db.update(productsTable).set({ ...normalizedP, updatedAt: new Date() }).where(eq(productsTable.id, existing.id));
         updated++;
       } else {
-        await db.insert(productsTable).values(p);
+        await db.insert(productsTable).values(normalizedP);
         imported++;
       }
     } catch (err: unknown) {
@@ -128,7 +140,8 @@ router.post("/admin/products/bulk", requireAdmin, async (req, res): Promise<void
 router.post("/admin/products", requireAdmin, async (req, res): Promise<void> => {
   const body = CreateAdminProductBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
-  const [product] = await db.insert(productsTable).values(body.data).returning();
+  const values = { ...body.data, subcategory: normalizeSubcategory(body.data.subcategory) };
+  const [product] = await db.insert(productsTable).values(values).returning();
   res.status(201).json(serializeProduct(product));
 });
 
@@ -147,9 +160,11 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res): Promise<void
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateAdminProductBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+  const patch = { ...body.data, updatedAt: new Date() };
+  if ("subcategory" in patch) patch.subcategory = normalizeSubcategory(patch.subcategory as string | null | undefined);
   const [product] = await db
     .update(productsTable)
-    .set({ ...body.data, updatedAt: new Date() })
+    .set(patch)
     .where(eq(productsTable.id, params.data.id))
     .returning();
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }

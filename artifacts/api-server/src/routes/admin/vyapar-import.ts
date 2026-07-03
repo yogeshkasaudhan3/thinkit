@@ -12,6 +12,7 @@ import { db, productsTable, categoriesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/requireAdmin";
 import { logger } from "../../lib/logger";
+import { normalizeSubcategory } from "./products";
 
 const log = logger.child({ module: "vyapar-import" });
 
@@ -282,7 +283,7 @@ function mapRows(parsed: ParsedSheet): MapRowsResult {
       name:        rawName,
       brand:       cell(cols, colBrand),
       category:    cell(cols, colCat),
-      subcategory: cell(cols, colSubcategory),
+      subcategory: normalizeSubcategory(cell(cols, colSubcategory)) ?? "",
       mrp:         mrp || price, // fall back to price if MRP also absent
       price,
       stockQty:    parseIntVal(cell(cols, colStock)),
