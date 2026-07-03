@@ -18,6 +18,7 @@ interface PreviewRow {
   name: string;
   brand: string;
   category: string;
+  subcategory: string;
   mrp: number;
   price: number;
   stockQty: number;
@@ -30,6 +31,7 @@ interface PreviewResult {
   skippedNoPrice: number;
   uniqueCategories: number;
   categoryNames: string[];
+  uniqueSubcategories: number;
   sample: PreviewRow[];
 }
 
@@ -313,6 +315,7 @@ export default function BulkImport() {
                     { from: 'Item code',               to: 'Barcode / SKU',    note: 'Match priority over name' },
                     { from: 'Company',                 to: 'Brand',            note: 'Blank if column absent' },
                     { from: 'Category',                to: 'Category',         note: 'Auto-created if not found' },
+                    { from: 'Subcategory',             to: 'Subcategory',      note: 'Optional — skipped if absent' },
                     { from: 'Default Mrp',             to: 'MRP',              note: '' },
                     { from: 'Sale price',              to: 'Selling Price',    note: 'Falls back to MRP if blank' },
                     { from: 'Current stock quantity',  to: 'Stock',            note: 'Sets in-stock status' },
@@ -329,9 +332,10 @@ export default function BulkImport() {
               <div className="px-4 py-4 border-t border-border bg-muted/10">
                 <p className="text-xs font-semibold text-foreground mb-2">How import works:</p>
                 <ul className="text-xs text-muted-foreground space-y-1">
-                  <li>• <span className="font-medium text-foreground">Existing products</span> — matched by Item code first, then by name (fuzzy). Stock, price &amp; category are updated.</li>
+                  <li>• <span className="font-medium text-foreground">Existing products</span> — matched by Item code first, then by name (fuzzy). Stock, price, category &amp; subcategory are updated.</li>
                   <li>• <span className="font-medium text-foreground">New products</span> — created automatically. Images can be added later from the Products page.</li>
                   <li>• <span className="font-medium text-foreground">Categories</span> — auto-created if a category name is not yet in Thinkit.</li>
+                  <li>• <span className="font-medium text-foreground">Subcategory</span> — optional column; add a "Subcategory" header to your export to assign products to subcategory tabs in bulk.</li>
                   <li>• <span className="font-medium text-foreground">Blank / separator rows</span> — skipped safely.</li>
                 </ul>
               </div>
@@ -360,10 +364,11 @@ export default function BulkImport() {
               <CardTitle className="text-base font-semibold py-1">Ready to Import</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
-                <StatBox value={previewData.totalRows}        label="Products"          highlight="success" />
-                <StatBox value={previewData.uniqueCategories} label="Categories"                            />
-                <StatBox value={previewData.skippedBlank}     label="Skipped"                               />
+              <div className="grid grid-cols-4 divide-x divide-border border-b border-border">
+                <StatBox value={previewData.totalRows}           label="Products"       highlight="success" />
+                <StatBox value={previewData.uniqueCategories}    label="Categories"                         />
+                <StatBox value={previewData.uniqueSubcategories} label="Subcategories"                      />
+                <StatBox value={previewData.skippedBlank}        label="Skipped"                            />
               </div>
 
               {/* Category names */}
@@ -394,6 +399,7 @@ export default function BulkImport() {
                         <th className="px-4 py-2.5 text-left font-medium">Product Name</th>
                         <th className="px-4 py-2.5 text-left font-medium">Brand</th>
                         <th className="px-4 py-2.5 text-left font-medium">Category</th>
+                        <th className="px-4 py-2.5 text-left font-medium">Subcategory</th>
                         <th className="px-4 py-2.5 text-right font-medium">MRP</th>
                         <th className="px-4 py-2.5 text-right font-medium">Price</th>
                         <th className="px-4 py-2.5 text-right font-medium">Stock</th>
@@ -412,6 +418,11 @@ export default function BulkImport() {
                           <td className="px-4 py-2.5 text-xs">
                             {row.category
                               ? <Badge variant="outline" className="text-[10px]">{row.category}</Badge>
+                              : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs">
+                            {row.subcategory
+                              ? <Badge variant="secondary" className="text-[10px]">{row.subcategory}</Badge>
                               : <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">

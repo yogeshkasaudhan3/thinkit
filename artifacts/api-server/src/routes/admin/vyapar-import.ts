@@ -84,6 +84,15 @@ const ALIASES = {
     "product code",
     "code",
   ],
+  subcategory: [
+    "subcategory",
+    "sub category",
+    "sub-category",
+    "subcategory name",
+    "sub category name",
+    "item subcategory",
+    "product subcategory",
+  ],
 } as const;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -140,6 +149,7 @@ interface ParsedSheet {
   colPrice: number;
   colStock: number;
   colBarcode: number;
+  colSubcategory: number;
 }
 
 function parseFile(fileBase64: string, fileName: string): ParsedSheet | { error: string } {
@@ -187,16 +197,17 @@ function parseFile(fileBase64: string, fileName: string): ParsedSheet | { error:
       .trim()
   );
 
-  const colName    = resolveCol(headers, ALIASES.name);
-  const colBrand   = resolveCol(headers, ALIASES.brand);
-  const colCat     = resolveCol(headers, ALIASES.category);
-  const colMrp     = resolveCol(headers, ALIASES.mrp);
-  const colPrice   = resolveCol(headers, ALIASES.price);
-  const colStock   = resolveCol(headers, ALIASES.stock);
-  const colBarcode = resolveCol(headers, ALIASES.barcode);
+  const colName         = resolveCol(headers, ALIASES.name);
+  const colBrand        = resolveCol(headers, ALIASES.brand);
+  const colCat          = resolveCol(headers, ALIASES.category);
+  const colMrp          = resolveCol(headers, ALIASES.mrp);
+  const colPrice        = resolveCol(headers, ALIASES.price);
+  const colStock        = resolveCol(headers, ALIASES.stock);
+  const colBarcode      = resolveCol(headers, ALIASES.barcode);
+  const colSubcategory  = resolveCol(headers, ALIASES.subcategory);
 
   log.info(
-    { fileName, colName, colBrand, colCat, colMrp, colPrice, colStock, colBarcode, headers },
+    { fileName, colName, colBrand, colCat, colMrp, colPrice, colStock, colBarcode, colSubcategory, headers },
     "Column mapping resolved"
   );
 
@@ -213,7 +224,7 @@ function parseFile(fileBase64: string, fileName: string): ParsedSheet | { error:
   }
 
   const dataRows = nonBlank.slice(1);
-  return { dataRows, headers, colName, colBrand, colCat, colMrp, colPrice, colStock, colBarcode };
+  return { dataRows, headers, colName, colBrand, colCat, colMrp, colPrice, colStock, colBarcode, colSubcategory };
 }
 
 // ── Mapped row (shared between preview and import) ─────────────────────────
@@ -221,11 +232,12 @@ function parseFile(fileBase64: string, fileName: string): ParsedSheet | { error:
 interface MappedRow {
   name: string;
   brand: string;
-  category: string;   // raw category name from file (will be resolved to ID on import)
+  category: string;     // raw category name from file (will be resolved to ID on import)
+  subcategory: string;  // optional subcategory label; empty string means "no subcategory"
   mrp: number;
   price: number;
   stockQty: number;
-  sku: string;        // Item code from Vyapar — primary product identifier
+  sku: string;          // Item code from Vyapar — primary product identifier
   rowNum: number;
 }
 
@@ -236,7 +248,7 @@ interface MapRowsResult {
 }
 
 function mapRows(parsed: ParsedSheet): MapRowsResult {
-  const { dataRows, colName, colBrand, colCat, colMrp, colPrice, colStock, colBarcode } = parsed;
+  const { dataRows, colName, colBrand, colCat, colMrp, colPrice, colStock, colBarcode, colSubcategory } = parsed;
 
   const rows: MappedRow[] = [];
   let skippedBlank    = 0;
@@ -267,13 +279,14 @@ function mapRows(parsed: ParsedSheet): MapRowsResult {
     }
 
     rows.push({
-      name:     rawName,
-      brand:    cell(cols, colBrand),
-      category: cell(cols, colCat),
-      mrp:      mrp || price, // fall back to price if MRP also absent
+      name:        rawName,
+      brand:       cell(cols, colBrand),
+      category:    cell(cols, colCat),
+      subcategory: cell(cols, colSubcategory),
+      mrp:         mrp || price, // fall back to price if MRP also absent
       price,
-      stockQty: parseIntVal(cell(cols, colStock)),
-      sku:      rawSku,
+      stockQty:    parseIntVal(cell(cols, colStock)),
+      sku:         rawSku,
       rowNum,
     });
   }
@@ -316,13 +329,17 @@ router.post(
       "Preview complete"
     );
 
+    // Deduplicate subcategory names for info display
+    const uniqueSubcategories = [...new Set(rows.map((r) => r.subcategory).filter(Boolean))];
+
     res.json({
-      totalRows:        rows.length,
+      totalRows:           rows.length,
       skippedBlank,
       skippedNoPrice,
-      uniqueCategories: uniqueCategories.length,
-      categoryNames:    uniqueCategories.slice(0, 20), // first 20 for display
-      sample:           rows.slice(0, 50),
+      uniqueCategories:    uniqueCategories.length,
+      categoryNames:       uniqueCategories.slice(0, 20), // first 20 for display
+      uniqueSubcategories: uniqueSubcategories.length,
+      sample:              rows.slice(0, 50),
     });
   }
 );
@@ -439,36 +456,42 @@ router.post(
 
         // ── 3. Build values object ───────────────────────────────────────────
         const values = {
-          name:       row.name,
-          brand:      row.brand || "",
+          name:        row.name,
+          brand:       row.brand || "",
           categoryId,
-          weight:     "",              // Vyapar doesn't export weight
-          mrp:        row.mrp,
-          price:      row.price,
-          stockQty:   row.stockQty,
-          inStock:    row.stockQty > 0,
-          sku:        row.sku || null,
-          imageUrl:   null as string | null,
-          enabled:    true,
-          updatedAt:  new Date(),
+          subcategory: row.subcategory || null,
+          weight:      "",              // Vyapar doesn't export weight
+          mrp:         row.mrp,
+          price:       row.price,
+          stockQty:    row.stockQty,
+          inStock:     row.stockQty > 0,
+          sku:         row.sku || null,
+          imageUrl:    null as string | null,
+          enabled:     true,
+          updatedAt:   new Date(),
         };
 
         // ── 4. Upsert ────────────────────────────────────────────────────────
         if (existingId) {
           // Update existing product (keep existing imageUrl and other fields intact)
+          // Only overwrite subcategory when the file has a non-empty value for it
+          const updateSet: Record<string, unknown> = {
+            name:       values.name,
+            brand:      values.brand,
+            categoryId: values.categoryId,
+            mrp:        values.mrp,
+            price:      values.price,
+            stockQty:   values.stockQty,
+            inStock:    values.inStock,
+            sku:        values.sku,
+            updatedAt:  values.updatedAt,
+          };
+          if (row.subcategory) {
+            updateSet.subcategory = row.subcategory;
+          }
           await db
             .update(productsTable)
-            .set({
-              name:      values.name,
-              brand:     values.brand,
-              categoryId: values.categoryId,
-              mrp:       values.mrp,
-              price:     values.price,
-              stockQty:  values.stockQty,
-              inStock:   values.inStock,
-              sku:       values.sku,
-              updatedAt: values.updatedAt,
-            })
+            .set(updateSet)
             .where(eq(productsTable.id, existingId));
           updated++;
         } else {
