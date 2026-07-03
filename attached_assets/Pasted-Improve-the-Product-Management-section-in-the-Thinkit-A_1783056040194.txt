@@ -1,0 +1,107 @@
+Improve the Product Management section in the Thinkit Admin Panel.
+
+Current Issues:
+
+1. Total Product Count is Incorrect
+- The admin panel always shows "500 Products" even after adding or deleting products.
+- Show the exact live count from the database.
+
+Example:
+Products: 1,742
+instead of:
+Products: 500
+
+The count should update instantly after:
+- Adding a product
+- Deleting a product
+- Bulk importing products
+
+--------------------------------------------------
+
+2. Advanced Product Search & Filters
+
+Current search functionality is insufficient.
+
+Add the following filters:
+
+Search By:
+- Product Name
+- SKU (Item Code)
+- Brand
+- Category
+- Subcategory
+
+Filter Options:
+- Category Filter Dropdown
+- Subcategory Filter Dropdown
+- In Stock / Out of Stock Filter
+- Sort By:
+  - Name (A-Z)
+  - Name (Z-A)
+  - Price (Low to High)
+  - Price (High to Low)
+  - Recently Added
+
+Add a clear filters button.
+
+The search and filters should work instantly without refreshing the page.
+
+--------------------------------------------------
+
+3. Improve Product Edit UI
+
+Current problem:
+The image upload field is at the bottom, forcing admins to scroll every time.
+
+Required:
+
+Rearrange the product form as follows:
+
+Section 1:
+- Product Image Upload (at the top)
+- Image Preview
+
+Section 2:
+- Product Name
+- Brand
+- SKU
+- Category
+- Subcategory
+
+Section 3:
+- Weight
+- MRP
+- Selling Price
+- Stock Quantity
+
+Section 4:
+- Description
+- Status (In Stock / Out of Stock)
+
+The image upload section should always be visible near the top.
+
+--------------------------------------------------
+
+4. Bonus Improvements
+
+Add:
+
+- Sticky Save Button (always visible while scrolling)
+- Quick Edit Mode:
+  Allow editing:
+  - Price
+  - Stock
+  - Status
+  directly from the product list without opening the edit page.
+
+- Pagination:
+  Show:
+  Page 1 of X
+  50 products per page
+
+- Display:
+  Total Products
+  Total In Stock
+  Total Out of Stock
+
+The Product Management section should be optimized for managing 2000+ grocery products efficiently.

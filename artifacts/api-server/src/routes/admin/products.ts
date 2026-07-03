@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, productsTable } from "@workspace/db";
-import { eq, ilike, and, or, sql } from "drizzle-orm";
+import { eq, ilike, and, or, sql, asc, desc } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/requireAdmin";
 import {
   CreateAdminProductBody,
@@ -15,42 +15,82 @@ import {
 
 const router: IRouter = Router();
 
-// ── List products with search ───────────────────────────────────────────────
+// ── Shared WHERE clause builder ─────────────────────────────────────────────
+
+function buildConditions(query: Record<string, unknown>, includeInStock = true) {
+  const q           = typeof query.q           === "string" ? query.q           : undefined;
+  const category    = typeof query.category    === "string" ? query.category    : undefined;
+  const subcategory = typeof query.subcategory === "string" ? query.subcategory : undefined;
+  const inStockRaw  = query.inStock;
+  const enabledRaw  = query.enabled;
+
+  const inStock = inStockRaw === "true" ? true : inStockRaw === "false" ? false : undefined;
+  const enabled = enabledRaw === "true" ? true : enabledRaw === "false" ? false : undefined;
+
+  const conds = [];
+  if (q)    conds.push(or(
+    ilike(productsTable.name,  `%${q}%`),
+    ilike(productsTable.brand, `%${q}%`),
+    ilike(productsTable.sku,   `%${q}%`),
+  ));
+  if (category)    conds.push(eq(productsTable.categoryId, category));
+  if (subcategory) conds.push(eq(productsTable.subcategory, subcategory));
+  if (includeInStock && typeof inStock === "boolean") conds.push(eq(productsTable.inStock, inStock));
+  if (typeof enabled === "boolean")                   conds.push(eq(productsTable.enabled, enabled));
+
+  return conds;
+}
+
+// ── GET /admin/products/stats ───────────────────────────────────────────────
+// Returns total / inStock / outOfStock counts (ignores inStock query param so
+// we always get both in- and out-of-stock totals regardless of stock filter).
+router.get("/admin/products/stats", requireAdmin, async (req, res): Promise<void> => {
+  const baseConds = buildConditions(req.query as Record<string, unknown>, /* includeInStock */ false);
+  const baseWhere = baseConds.length ? and(...baseConds) : undefined;
+  const inWhere   = baseConds.length ? and(...baseConds, eq(productsTable.inStock, true))  : eq(productsTable.inStock, true);
+  const outWhere  = baseConds.length ? and(...baseConds, eq(productsTable.inStock, false)) : eq(productsTable.inStock, false);
+
+  const [{ total }]       = await db.select({ total:    sql<number>`count(*)::int` }).from(productsTable).where(baseWhere);
+  const [{ inStockCnt }]  = await db.select({ inStockCnt:  sql<number>`count(*)::int` }).from(productsTable).where(inWhere);
+  const [{ outStockCnt }] = await db.select({ outStockCnt: sql<number>`count(*)::int` }).from(productsTable).where(outWhere);
+
+  res.json({ total, inStock: inStockCnt, outOfStock: outStockCnt });
+});
+
+// ── GET /admin/products ─────────────────────────────────────────────────────
 router.get("/admin/products", requireAdmin, async (req, res): Promise<void> => {
-  const q = typeof req.query.q === "string" ? req.query.q : undefined;
-  const category = typeof req.query.category === "string" ? req.query.category : undefined;
-  const inStockRaw = req.query.inStock;
-  const enabledRaw = req.query.enabled;
+  const q = req.query as Record<string, unknown>;
 
-  // Boolean coercion from query strings
-  const inStock =
-    inStockRaw === "true" ? true : inStockRaw === "false" ? false : undefined;
-  const enabled =
-    enabledRaw === "true" ? true : enabledRaw === "false" ? false : undefined;
+  const conds   = buildConditions(q);
+  const where   = conds.length ? and(...conds) : undefined;
 
-  const conditions = [];
-  if (q) {
-    conditions.push(or(
-      ilike(productsTable.name,  `%${q}%`),
-      ilike(productsTable.brand, `%${q}%`),
-      ilike(productsTable.sku,   `%${q}%`),
-    ));
-  }
-  if (category) conditions.push(eq(productsTable.categoryId, category));
-  if (typeof inStock === "boolean") conditions.push(eq(productsTable.inStock, inStock));
-  if (typeof enabled === "boolean") conditions.push(eq(productsTable.enabled, enabled));
+  // Sort
+  const sortParam = typeof q.sort === "string" ? q.sort : "name-asc";
+  const orderByClause = ({
+    "name-asc":   asc(productsTable.name),
+    "name-desc":  desc(productsTable.name),
+    "price-asc":  asc(productsTable.price),
+    "price-desc": desc(productsTable.price),
+    "recent":     desc(productsTable.createdAt),
+  } as Record<string, ReturnType<typeof asc>>)[sortParam] ?? asc(productsTable.name);
+
+  // Pagination
+  const page     = Math.max(1, parseInt(typeof q.page     === "string" ? q.page     : "1",  10) || 1);
+  const pageSize = Math.min(200, Math.max(1, parseInt(typeof q.pageSize === "string" ? q.pageSize : "50", 10) || 50));
+  const offset   = (page - 1) * pageSize;
 
   const products = await db
     .select()
     .from(productsTable)
-    .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(productsTable.name)
-    .limit(500);
+    .where(where)
+    .orderBy(orderByClause)
+    .limit(pageSize)
+    .offset(offset);
 
   res.json(products.map(serializeProduct));
 });
 
-// ── Bulk import — must be before /:id ──────────────────────────────────────
+// ── POST /admin/products/bulk — must be before /:id ─────────────────────────
 router.post("/admin/products/bulk", requireAdmin, async (req, res): Promise<void> => {
   const body = BulkImportProductsBody.safeParse(req.body);
   if (!body.success) {
@@ -58,9 +98,7 @@ router.post("/admin/products/bulk", requireAdmin, async (req, res): Promise<void
     return;
   }
 
-  let imported = 0;
-  let updated = 0;
-  let failed = 0;
+  let imported = 0, updated = 0, failed = 0;
   const errors: string[] = [];
 
   for (const p of body.data.products) {
@@ -71,10 +109,7 @@ router.post("/admin/products/bulk", requireAdmin, async (req, res): Promise<void
         .where(and(eq(productsTable.name, p.name), eq(productsTable.brand, p.brand)));
 
       if (existing) {
-        await db
-          .update(productsTable)
-          .set({ ...p, updatedAt: new Date() })
-          .where(eq(productsTable.id, existing.id));
+        await db.update(productsTable).set({ ...p, updatedAt: new Date() }).where(eq(productsTable.id, existing.id));
         updated++;
       } else {
         await db.insert(productsTable).values(p);
@@ -89,122 +124,67 @@ router.post("/admin/products/bulk", requireAdmin, async (req, res): Promise<void
   res.json({ imported, updated, failed, errors });
 });
 
-// ── Create product ──────────────────────────────────────────────────────────
+// ── POST /admin/products ─────────────────────────────────────────────────────
 router.post("/admin/products", requireAdmin, async (req, res): Promise<void> => {
   const body = CreateAdminProductBody.safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({ error: body.error.message });
-    return;
-  }
-
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const [product] = await db.insert(productsTable).values(body.data).returning();
   res.status(201).json(serializeProduct(product));
 });
 
-// ── Get single product ──────────────────────────────────────────────────────
+// ── GET /admin/products/:id ──────────────────────────────────────────────────
 router.get("/admin/products/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = GetAdminProductParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
-  const [product] = await db
-    .select()
-    .from(productsTable)
-    .where(eq(productsTable.id, params.data.id));
-  if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return;
-  }
-
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, params.data.id));
+  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
   res.json(serializeProduct(product));
 });
 
-// ── Update product ──────────────────────────────────────────────────────────
+// ── PATCH /admin/products/:id ────────────────────────────────────────────────
 router.patch("/admin/products/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateAdminProductParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateAdminProductBody.safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({ error: body.error.message });
-    return;
-  }
-
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const [product] = await db
     .update(productsTable)
     .set({ ...body.data, updatedAt: new Date() })
     .where(eq(productsTable.id, params.data.id))
     .returning();
-
-  if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return;
-  }
-
+  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
   res.json(serializeProduct(product));
 });
 
-// ── Delete product ──────────────────────────────────────────────────────────
+// ── DELETE /admin/products/:id ───────────────────────────────────────────────
 router.delete("/admin/products/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteAdminProductParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
-  const [product] = await db
-    .delete(productsTable)
-    .where(eq(productsTable.id, params.data.id))
-    .returning();
-
-  if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return;
-  }
-
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const [product] = await db.delete(productsTable).where(eq(productsTable.id, params.data.id)).returning();
+  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
   res.sendStatus(204);
 });
 
-// ── Toggle stock ────────────────────────────────────────────────────────────
+// ── PATCH /admin/products/:id/stock ─────────────────────────────────────────
 router.patch("/admin/products/:id/stock", requireAdmin, async (req, res): Promise<void> => {
   const params = ToggleProductStockParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = ToggleProductStockBody.safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({ error: body.error.message });
-    return;
-  }
-
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const [product] = await db
     .update(productsTable)
     .set({ inStock: body.data.inStock, updatedAt: new Date() })
     .where(eq(productsTable.id, params.data.id))
     .returning();
-
-  if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return;
-  }
-
+  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
   res.json(serializeProduct(product));
 });
 
+// ── Serializer ───────────────────────────────────────────────────────────────
 function serializeProduct(p: Record<string, unknown>) {
   return {
     ...p,
-    createdAt:
-      p.createdAt instanceof Date
-        ? p.createdAt.toISOString()
-        : String(p.createdAt ?? ""),
+    createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt ?? ""),
   };
 }
 
