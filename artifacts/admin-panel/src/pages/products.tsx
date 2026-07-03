@@ -22,6 +22,7 @@ import {
 import { useDebounce } from '@/hooks/use-debounce';
 import { useToast } from '@/hooks/use-toast';
 import type { AdminProduct } from '@workspace/api-client-react';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -36,15 +37,6 @@ const SORT_OPTIONS = [
 ];
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-
-async function adminFetch<T = unknown>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetch(url, { credentials: 'include', ...options });
-  if (!r.ok) {
-    const d = await r.json().catch(() => ({}));
-    throw new Error((d as Record<string, string>).error ?? `HTTP ${r.status}`);
-  }
-  return r.json() as Promise<T>;
-}
 
 function buildQS(params: Record<string, string | number | boolean | undefined>): string {
   const q = new URLSearchParams();

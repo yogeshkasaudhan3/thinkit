@@ -22,6 +22,7 @@ import {
   Banknote,
   AlertCircle,
 } from 'lucide-react';
+import { adminFetch } from '@/lib/admin-fetch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -331,22 +332,20 @@ function CancelOrderDialog({
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}/cancel`, {
+      await adminFetch(`/api/admin/orders/${orderId}/cancel`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ cancellationReason: reason }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        setError((d as any).error ?? 'Failed to cancel order. Please try again.');
-        return;
-      }
       setSelectedReason('');
       setCustomReason('');
       onSuccess();
-    } catch {
-      setError('Network error. Please try again.');
+    } catch (err: any) {
+      // AdminFetchError already fires the unauthorized redirect on 401;
+      // for other errors show a local message.
+      if (err?.status !== 401) {
+        setError(err?.message ?? 'Failed to cancel order. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

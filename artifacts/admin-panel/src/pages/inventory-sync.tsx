@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,17 +64,6 @@ interface SyncLog {
 }
 
 type Step = 'upload' | 'preview' | 'result';
-
-// ── API helper ────────────────────────────────────────────────────────────────
-
-const adminFetch = (url: string, options?: RequestInit) =>
-  fetch(url, { credentials: 'include', ...options }).then(async (r) => {
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      throw new Error((d as Record<string, string>).error ?? `HTTP ${r.status}`);
-    }
-    return r.json();
-  });
 
 // ── Helper components ─────────────────────────────────────────────────────────
 

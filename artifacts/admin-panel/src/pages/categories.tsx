@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useUpload } from '@workspace/object-storage-web';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,17 +49,6 @@ type CategoryPayload = {
   status?: 'active' | 'inactive';
   displayOrder?: number;
 };
-
-// ── API helpers ───────────────────────────────────────────────────────────────
-
-const adminFetch = (url: string, options?: RequestInit) =>
-  fetch(url, { credentials: 'include', ...options }).then(async (r) => {
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      throw new Error((d as any).error ?? `HTTP ${r.status}`);
-    }
-    return r.status === 204 ? null : r.json();
-  });
 
 // ── Category hooks ────────────────────────────────────────────────────────────
 

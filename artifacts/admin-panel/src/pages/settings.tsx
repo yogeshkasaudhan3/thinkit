@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,15 +49,6 @@ type FormValues = {
 };
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-
-const adminFetch = (url: string, options?: RequestInit) =>
-  fetch(url, { credentials: 'include', ...options }).then(async (r) => {
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      throw new Error((d as any).error ?? `HTTP ${r.status}`);
-    }
-    return r.json();
-  });
 
 function settingsToForm(s: AdminSettings): FormValues {
   return {
@@ -182,17 +174,10 @@ function ChangePasswordSection() {
 
   const { mutate: changePassword, isPending } = useMutation({
     mutationFn: (body: PasswordFormValues) =>
-      fetch('/api/admin/change-password', {
+      adminFetch('/api/admin/change-password', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      }).then(async (r) => {
-        if (!r.ok) {
-          const d = await r.json().catch(() => ({}));
-          throw new Error((d as any).error ?? `HTTP ${r.status}`);
-        }
-        return r.json();
       }),
     onSuccess: () => {
       toast({ title: 'Password changed', description: 'Your admin password has been updated successfully.' });

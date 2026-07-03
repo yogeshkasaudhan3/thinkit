@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,16 +48,11 @@ type Step = 'upload' | 'preview' | 'result';
 
 // ── API fetch helper ──────────────────────────────────────────────────────────
 
-const apiFetch = (url: string, body: unknown) =>
-  fetch(url, {
+const apiFetch = <T = unknown>(url: string, body: unknown) =>
+  adminFetch<T>(url, {
     method: 'POST',
-    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  }).then(async (r) => {
-    const d = await r.json();
-    if (!r.ok) throw new Error((d as { error?: string }).error ?? `HTTP ${r.status}`);
-    return d;
   });
 
 // ── Stat box ──────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
@@ -16,9 +16,53 @@ import Settings from '@/pages/settings';
 import InventorySync from '@/pages/inventory-sync';
 
 import { AdminLayout } from '@/components/layout/admin-layout';
-import { AuthGuard } from '@/components/auth-guard';
+import { AuthGuard, clearAuthCache } from '@/components/auth-guard';
+import { setAdminUnauthorizedHandler } from '@/lib/admin-fetch';
 
-const queryClient = new QueryClient();
+// ---------------------------------------------------------------------------
+// Global session-expiry handler
+// ---------------------------------------------------------------------------
+// Redirects to /login?reason=expired whenever a 401 is detected, clearing the
+// auth cache so the login page shows the "session expired" banner.
+//
+// This handler is invoked from TWO sources so that every admin API call is
+// covered regardless of how it is made:
+//
+//  1. adminFetch — called directly inside the function before throwing, so
+//     imperative callers (event handlers) also trigger the redirect even if
+//     their own catch block swallows the error and only shows a toast.
+//
+//  2. React Query's QueryCache / MutationCache onError — catches 401s from
+//     generated API-client hooks (useGetAdminMe, etc.) that use customFetch
+//     rather than adminFetch.
+// ---------------------------------------------------------------------------
+
+function handleUnauthorized(error: unknown) {
+  const status = (error as { status?: number })?.status;
+  if (status !== 401) return;
+
+  // Don't redirect if we're already on the login page.
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const loginPath = `${base}/login`;
+  if (window.location.pathname.startsWith(loginPath)) return;
+
+  clearAuthCache();
+  window.location.href = `${loginPath}?reason=expired`;
+}
+
+// Register with adminFetch so imperative event-handler calls also redirect.
+// adminFetch already knows the status is 401 when it fires this callback,
+// so we pass a synthetic error object that satisfies handleUnauthorized's check.
+setAdminUnauthorizedHandler(() => handleUnauthorized({ status: 401 }));
+
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: handleUnauthorized,
+  }),
+  mutationCache: new MutationCache({
+    onError: handleUnauthorized,
+  }),
+});
 
 function AuthenticatedRoutes() {
   return (

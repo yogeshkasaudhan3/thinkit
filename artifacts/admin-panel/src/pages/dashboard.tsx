@@ -1,5 +1,6 @@
 import { useGetAdminDashboard } from '@workspace/api-client-react';
 import { useQuery } from '@tanstack/react-query';
+import { adminFetch } from '@/lib/admin-fetch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingBag, DollarSign, Clock, Truck, Loader2, ArrowRight, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
@@ -20,9 +21,7 @@ export default function Dashboard() {
 
   const { data: lastSync } = useQuery<LastSync | null>({
     queryKey: ['/api/admin/inventory-sync/last'],
-    queryFn: () =>
-      fetch('/api/admin/inventory-sync/last', { credentials: 'include' })
-        .then((r) => r.json()),
+    queryFn: () => adminFetch<LastSync | null>('/api/admin/inventory-sync/last'),
     refetchInterval: 60_000,
   });
 

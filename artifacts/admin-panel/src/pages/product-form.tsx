@@ -23,27 +23,26 @@ import { ArrowLeft, Loader2, Save, Trash2, Image as ImageIcon, Upload, X } from 
 import { useUpload } from '@workspace/object-storage-web';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Category / subcategory helpers ────────────────────────────────────────────
 
 function useAdminCategoryList() {
   return useQuery<{ id: number; name: string }[]>({
     queryKey: ['/api/admin/categories'],
-    queryFn: () =>
-      fetch('/api/admin/categories', { credentials: 'include' })
-        .then((r) => (r.ok ? r.json() : [])),
+    queryFn: () => adminFetch<{ id: number; name: string }[]>('/api/admin/categories'),
   });
 }
 
 function useSubcategoryOptions(categoryId: string) {
   return useQuery<string[]>({
     queryKey: ['/api/admin/categories', categoryId, 'subcategories'],
-    queryFn: () =>
-      fetch(`/api/admin/categories/${categoryId}/subcategories`, { credentials: 'include' })
-        .then((r) => (r.ok ? r.json() : []))
-        .then((data: Array<{ name: string } | string>) =>
-          data.map((d) => (typeof d === 'string' ? d : d.name)),
-        ),
+    queryFn: async () => {
+      const data = await adminFetch<Array<{ name: string } | string>>(
+        `/api/admin/categories/${categoryId}/subcategories`,
+      );
+      return (data ?? []).map((d) => (typeof d === 'string' ? d : d.name));
+    },
     enabled: !!categoryId,
   });
 }
