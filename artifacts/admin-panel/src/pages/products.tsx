@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import {
   Search, Plus, Upload, Loader2, Package, Pencil, MoreVertical,
   X, ChevronLeft, ChevronRight, Zap, TrendingDown,
@@ -22,7 +22,6 @@ import {
 import { useDebounce } from '@/hooks/use-debounce';
 import { useToast } from '@/hooks/use-toast';
 import type { AdminProduct } from '@workspace/api-client-react';
-import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -36,7 +35,20 @@ const SORT_OPTIONS = [
   { value: 'recent',     label: 'Recently Added' },
 ];
 
+// Keys used in sessionStorage for state persistence across navigations
+const SS_RETURN_URL  = 'products-return-url';
+const SS_SCROLL_Y    = 'products-scroll-y';
+
 // ── API helpers ───────────────────────────────────────────────────────────────
+
+async function adminFetch<T = unknown>(url: string, options?: RequestInit): Promise<T> {
+  const r = await fetch(url, { credentials: 'include', ...options });
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    throw new Error((d as Record<string, string>).error ?? `HTTP ${r.status}`);
+  }
+  return r.json() as Promise<T>;
+}
 
 function buildQS(params: Record<string, string | number | boolean | undefined>): string {
   const q = new URLSearchParams();
@@ -71,7 +83,6 @@ interface ProductStats { total: number; inStock: number; outOfStock: number; }
 
 function useProductStats(qs: string) {
   return useQuery<ProductStats>({
-    // Key must share prefix '/api/admin/products' so invalidateQueries({ queryKey: ['/api/admin/products'] }) catches it
     queryKey: ['/api/admin/products', 'stats', qs],
     queryFn: () => adminFetch(`/api/admin/products/stats?${qs}`),
     staleTime: 30_000,
@@ -80,7 +91,6 @@ function useProductStats(qs: string) {
 
 function useProductList(qs: string) {
   return useQuery<AdminProduct[]>({
-    // Same prefix for shared invalidation
     queryKey: ['/api/admin/products', 'list', qs],
     queryFn: () => adminFetch(`/api/admin/products?${qs}`),
     staleTime: 30_000,
@@ -127,7 +137,11 @@ function QuickEditDialog({
       onSaved();
       onClose();
     } catch (err: unknown) {
-      toast({ title: 'Failed to save', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+      toast({
+        title: 'Failed to save',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
@@ -180,23 +194,74 @@ function QuickEditDialog({
 
 export default function Products() {
   const [, setLocation] = useLocation();
+  const rawSearch       = useSearch(); // e.g. "page=3&q=atta&cat=5"
   const queryClient     = useQueryClient();
   const { toast }       = useToast();
 
-  // Filters
-  const [searchTerm,       setSearchTerm]       = useState('');
-  const [categoryFilter,   setCategoryFilter]   = useState('');
-  const [subcatFilter,     setSubcatFilter]     = useState('');
-  const [stockFilter,      setStockFilter]      = useState<'all' | 'in' | 'out'>('all');
-  const [sort,             setSort]             = useState('name-asc');
-  const [page,             setPage]             = useState(1);
-  const [quickEditProduct, setQuickEditProduct] = useState<AdminProduct | null>(null);
+  // Keep a ref to the latest search string so updateUrl callbacks don't
+  // need search in their dependency arrays (avoids stale-closure issues).
+  const searchRef = useRef(rawSearch);
+  useEffect(() => { searchRef.current = rawSearch; }, [rawSearch]);
 
+  // Track the last debounced value we wrote to the URL so we can distinguish
+  // "URL changed because WE wrote it" from "URL changed externally" (back/fwd).
+  const lastWrittenQRef = useRef(new URLSearchParams(rawSearch).get('q') || '');
+
+  // ── Parse URL params (URL is the single source of truth for filter state) ──
+  const urlParams = useMemo(() => new URLSearchParams(rawSearch), [rawSearch]);
+
+  const page          = Math.max(1, parseInt(urlParams.get('page')  || '1', 10) || 1);
+  const categoryFilter= urlParams.get('cat')   || '';
+  const subcatFilter  = urlParams.get('sub')   || '';
+  const stockFilter   = (urlParams.get('stock') as 'all' | 'in' | 'out') || 'all';
+  const sort          = urlParams.get('sort')  || 'name-asc';
+
+  // Search term has its own local state for the input (debounce before hitting URL)
+  const [searchTerm, setSearchTerm] = useState(() => urlParams.get('q') || '');
   const debouncedSearch = useDebounce(searchTerm, 300);
 
-  const resetPage = () => setPage(1);
+  // ── URL updater ───────────────────────────────────────────────────────────
 
-  // Data
+  const updateUrl = useCallback(
+    (updates: Record<string, string | number | boolean | undefined>) => {
+      const p = new URLSearchParams(searchRef.current);
+      for (const [k, v] of Object.entries(updates)) {
+        if (v === undefined || v === '' || v === 'all') p.delete(k);
+        else p.set(k, String(v));
+      }
+      const qs = p.toString();
+      const next = '/products' + (qs ? '?' + qs : '');
+      const cur  = '/products' + (searchRef.current ? '?' + searchRef.current : '');
+      // Skip navigation when nothing changed (avoids spurious history entries)
+      if (next !== cur) setLocation(next, { replace: true });
+    },
+    [setLocation],
+  );
+
+  // Sync debounced search → URL (only when the value actually changed)
+  const prevDebouncedRef = useRef(debouncedSearch);
+  useEffect(() => {
+    if (prevDebouncedRef.current === debouncedSearch) return;
+    prevDebouncedRef.current = debouncedSearch;
+    lastWrittenQRef.current = debouncedSearch;
+    updateUrl({ q: debouncedSearch || undefined, page: undefined });
+  }, [debouncedSearch, updateUrl]);
+
+  // Sync URL → search input when URL changes externally (browser back/forward).
+  // We skip if the change was caused by our own debounced write (lastWrittenQRef).
+  useEffect(() => {
+    const qFromUrl = new URLSearchParams(rawSearch).get('q') || '';
+    if (qFromUrl !== lastWrittenQRef.current) {
+      setSearchTerm(qFromUrl);
+    }
+  }, [rawSearch]);
+
+  // ── Quick edit ────────────────────────────────────────────────────────────
+
+  const [quickEditProduct, setQuickEditProduct] = useState<AdminProduct | null>(null);
+
+  // ── Data ──────────────────────────────────────────────────────────────────
+
   const { data: categories = [] } = useCategories();
   const { data: subcatOptions = [] } = useSubcategoryOptions(categoryFilter);
 
@@ -207,14 +272,14 @@ export default function Products() {
     inStock:     stockFilter === 'in' ? true : stockFilter === 'out' ? false : undefined,
   };
 
-  const statsQS = buildQS({ ...baseFilters, inStock: undefined }); // stats always shows both
+  // Stats never pass inStock so we always see both bucket counts
+  const statsQS = buildQS({ ...baseFilters, inStock: undefined });
   const listQS  = buildQS({ ...baseFilters, sort, page, pageSize: PAGE_SIZE });
 
-  const { data: stats }              = useProductStats(statsQS);
-  const { data: products = [], isLoading } = useProductList(listQS);
+  const { data: stats }                        = useProductStats(statsQS);
+  const { data: products = [], isLoading }     = useProductList(listQS);
 
-  // Derive the filtered total for pagination from stats bucket counts so that
-  // when stockFilter is 'in' or 'out' the page count matches the actual list size.
+  // Pagination — totalFiltered respects the active stock filter for correct page count
   const totalFiltered = stats
     ? stockFilter === 'in'  ? stats.inStock
     : stockFilter === 'out' ? stats.outOfStock
@@ -223,14 +288,62 @@ export default function Products() {
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
   const hasFilters = !!(debouncedSearch || categoryFilter || subcatFilter || stockFilter !== 'all');
 
+  // ── Scroll position restoration ───────────────────────────────────────────
+
+  const hasData = products.length > 0 || (!isLoading && stats !== undefined);
+  const scrollRestored = useRef(false);
+
+  useEffect(() => {
+    if (!hasData || scrollRestored.current) return;
+    const saved = sessionStorage.getItem(SS_SCROLL_Y);
+    if (!saved) return;
+    const targetY = parseInt(saved, 10);
+    if (!Number.isFinite(targetY)) return;
+    scrollRestored.current = true;
+    sessionStorage.removeItem(SS_SCROLL_Y);
+    // Double RAF ensures table rows are in DOM before scrolling.
+    // Clamp to actual document height so we never scroll into empty space.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        window.scrollTo({ top: Math.min(targetY, maxY), behavior: 'instant' });
+      });
+    });
+  }, [hasData]);
+
+  // ── Filter helpers ────────────────────────────────────────────────────────
+
+  const setCategoryFilter = (v: string) =>
+    updateUrl({ cat: v || undefined, sub: undefined, page: undefined });
+  const setSubcatFilter = (v: string) =>
+    updateUrl({ sub: v || undefined, page: undefined });
+  const setStockFilter = (v: string) =>
+    updateUrl({ stock: v === 'all' ? undefined : v, page: undefined });
+  const setSort = (v: string) =>
+    updateUrl({ sort: v === 'name-asc' ? undefined : v, page: undefined });
+  const setPage = (p: number) =>
+    updateUrl({ page: p === 1 ? undefined : p });
+
   const clearFilters = () => {
-    setSearchTerm(''); setCategoryFilter(''); setSubcatFilter('');
-    setStockFilter('all'); setSort('name-asc'); setPage(1);
+    setSearchTerm('');
+    setLocation('/products', { replace: true });
   };
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+  // ── Navigation helpers ────────────────────────────────────────────────────
+
+  const navigateToEdit = (id: number) => {
+    // Save the full products URL and current scroll position so we can return
+    const returnUrl = '/products' + (rawSearch ? '?' + rawSearch : '');
+    sessionStorage.setItem(SS_RETURN_URL,  returnUrl);
+    sessionStorage.setItem(SS_SCROLL_Y,    String(window.scrollY));
+    setLocation(`/products/${id}/edit`);
   };
+
+  // ── Cache invalidation ────────────────────────────────────────────────────
+
+  const invalidateAll = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+  }, [queryClient]);
 
   const handleStockToggle = async (id: number, inStock: boolean) => {
     try {
@@ -244,6 +357,8 @@ export default function Products() {
       toast({ title: 'Failed to update stock status', variant: 'destructive' });
     }
   };
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
@@ -295,7 +410,7 @@ export default function Products() {
             <Input
               placeholder="Name, brand, SKU…"
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); resetPage(); }}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 bg-muted/50 border-transparent focus-visible:bg-background"
             />
           </div>
@@ -303,7 +418,7 @@ export default function Products() {
           {/* Category */}
           <Select
             value={categoryFilter || '__all__'}
-            onValueChange={(v) => { setCategoryFilter(v === '__all__' ? '' : v); setSubcatFilter(''); resetPage(); }}
+            onValueChange={(v) => setCategoryFilter(v === '__all__' ? '' : v)}
           >
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="All Categories" />
@@ -316,11 +431,11 @@ export default function Products() {
             </SelectContent>
           </Select>
 
-          {/* Subcategory — only visible when category chosen and options exist */}
+          {/* Subcategory — only visible when category is selected and options exist */}
           {categoryFilter && subcatOptions.length > 0 && (
             <Select
               value={subcatFilter || '__all__'}
-              onValueChange={(v) => { setSubcatFilter(v === '__all__' ? '' : v); resetPage(); }}
+              onValueChange={(v) => setSubcatFilter(v === '__all__' ? '' : v)}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="All Subcats" />
@@ -335,7 +450,7 @@ export default function Products() {
           )}
 
           {/* Stock filter */}
-          <Select value={stockFilter} onValueChange={(v: 'all' | 'in' | 'out') => { setStockFilter(v); resetPage(); }}>
+          <Select value={stockFilter} onValueChange={(v) => setStockFilter(v)}>
             <SelectTrigger className="w-[130px]">
               <SelectValue />
             </SelectTrigger>
@@ -347,7 +462,7 @@ export default function Products() {
           </Select>
 
           {/* Sort */}
-          <Select value={sort} onValueChange={(v) => { setSort(v); resetPage(); }}>
+          <Select value={sort} onValueChange={(v) => setSort(v)}>
             <SelectTrigger className="w-[155px]">
               <SelectValue />
             </SelectTrigger>
@@ -360,7 +475,11 @@ export default function Products() {
 
           {/* Clear filters */}
           {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground hover:text-foreground gap-1">
+            <Button
+              variant="ghost" size="sm"
+              onClick={clearFilters}
+              className="text-muted-foreground hover:text-foreground gap-1"
+            >
               <X className="h-3.5 w-3.5" /> Clear
             </Button>
           )}
@@ -400,7 +519,11 @@ export default function Products() {
               </thead>
               <tbody className="divide-y divide-border">
                 {products.map((product) => (
-                  <tr key={product.id} className={`hover:bg-muted/30 transition-colors ${!product.enabled ? 'opacity-60' : ''}`}>
+                  <tr
+                    key={product.id}
+                    id={`product-${product.id}`}
+                    className={`hover:bg-muted/30 transition-colors ${!product.enabled ? 'opacity-60' : ''}`}
+                  >
                     {/* Thumbnail */}
                     <td className="px-4 py-3">
                       <div className="h-10 w-10 rounded-md bg-muted border border-border overflow-hidden flex items-center justify-center shrink-0">
@@ -420,7 +543,7 @@ export default function Products() {
                         <div className="text-[10px] text-muted-foreground/70 font-mono mt-0.5">SKU: {product.sku}</div>
                       )}
                       <div className="flex gap-1 mt-1.5 md:hidden">
-                        {product.isBestSeller && <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-accent/20 text-accent-foreground border-transparent">Best Seller</Badge>}
+                        {product.isBestSeller    && <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-accent/20 text-accent-foreground border-transparent">Best Seller</Badge>}
                         {product.isDwarikaSpecial && <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-primary/10 text-primary border-transparent">Special</Badge>}
                       </div>
                     </td>
@@ -430,7 +553,7 @@ export default function Products() {
                       <div className="text-sm font-medium">{product.categoryId.split(':')[1]?.trim() || product.categoryId}</div>
                       {product.subcategory && <div className="text-xs text-muted-foreground">{product.subcategory}</div>}
                       <div className="flex gap-1 mt-1.5">
-                        {product.isBestSeller && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-accent/20 text-accent-foreground border-transparent">Best Seller</Badge>}
+                        {product.isBestSeller    && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-accent/20 text-accent-foreground border-transparent">Best Seller</Badge>}
                         {product.isDwarikaSpecial && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-transparent">Special</Badge>}
                       </div>
                     </td>
@@ -471,7 +594,7 @@ export default function Products() {
                           <DropdownMenuItem onClick={() => setQuickEditProduct(product)}>
                             <Zap className="mr-2 h-4 w-4" /> Quick Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setLocation(`/products/${product.id}/edit`)}>
+                          <DropdownMenuItem onClick={() => navigateToEdit(product.id)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Details
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -488,7 +611,9 @@ export default function Products() {
         {totalFiltered > PAGE_SIZE && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/30 shrink-0">
             <div className="text-sm text-muted-foreground">
-              Page <span className="font-medium text-foreground">{page}</span> of{' '}
+              Page{' '}
+              <span className="font-medium text-foreground">{page}</span>
+              {' '}of{' '}
               <span className="font-medium text-foreground">{totalPages.toLocaleString()}</span>
               {' '}·{' '}
               <span className="font-medium text-foreground">{totalFiltered.toLocaleString()}</span> products
@@ -496,14 +621,14 @@ export default function Products() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline" size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline" size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page >= totalPages}
               >
                 <ChevronRight className="h-4 w-4" />

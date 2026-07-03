@@ -95,6 +95,14 @@ export default function ProductForm() {
   const { toast }       = useToast();
   const queryClient     = useQueryClient();
 
+  // Navigate back to the products list, restoring the page/filter state that
+  // was saved in sessionStorage by the products page before navigating here.
+  const navigateBack = () => {
+    const returnUrl = sessionStorage.getItem('products-return-url') || '/products';
+    sessionStorage.removeItem('products-return-url');
+    setLocation(returnUrl);
+  };
+
   const { data: categoryList = [] } = useAdminCategoryList();
 
   const { data: product, isLoading: isLoadingProduct } = useGetAdminProduct(productId as number, {
@@ -172,7 +180,7 @@ export default function ProductForm() {
         onSuccess: () => {
           toast({ title: 'Product created successfully' });
           queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
-          setLocation('/products');
+          navigateBack();
         },
         onError: (err: unknown) => {
           toast({ title: 'Failed to create product', description: err instanceof Error ? err.message : 'Error', variant: 'destructive' });
@@ -184,7 +192,7 @@ export default function ProductForm() {
           toast({ title: 'Product updated successfully' });
           queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
           queryClient.invalidateQueries({ queryKey: ['/api/admin/products', productId] });
-          setLocation('/products');
+          navigateBack();
         },
         onError: (err: unknown) => {
           toast({ title: 'Failed to update product', description: err instanceof Error ? err.message : 'Error', variant: 'destructive' });
@@ -199,7 +207,7 @@ export default function ProductForm() {
       onSuccess: () => {
         toast({ title: 'Product deleted' });
         queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
-        setLocation('/products');
+        navigateBack();
       },
       onError: (err: unknown) => {
         toast({ title: 'Failed to delete product', description: err instanceof Error ? err.message : 'Error', variant: 'destructive' });
@@ -222,7 +230,7 @@ export default function ProductForm() {
 
       {/* Page header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation('/products')} className="shrink-0 rounded-full">
+        <Button variant="ghost" size="icon" onClick={navigateBack} className="shrink-0 rounded-full">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-bold tracking-tight text-foreground flex-1">
@@ -626,7 +634,7 @@ export default function ProductForm() {
 
           {/* ── Sticky Save button ────────────────────────────────────────── */}
           <div className="fixed bottom-0 left-0 right-0 z-20 flex justify-end gap-3 bg-background/90 backdrop-blur-md px-6 py-4 border-t border-border shadow-lg md:sticky md:bottom-6 md:left-auto md:right-auto md:rounded-xl md:border md:shadow-md md:mx-0">
-            <Button type="button" variant="outline" onClick={() => setLocation('/products')} disabled={isSaving}>
+            <Button type="button" variant="outline" onClick={navigateBack} disabled={isSaving}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving || isUploading} className="min-w-[140px]">
