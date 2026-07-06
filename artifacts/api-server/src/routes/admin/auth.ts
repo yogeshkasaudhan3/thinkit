@@ -85,7 +85,22 @@ router.get("/admin/me", (req, res): void => {
   res.json({ username: req.session.adminId });
 });
 
+const PW_CHANGE_MAX_FAILURES = 5;
+const PW_CHANGE_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+
 router.post("/admin/change-password", requireAdmin, async (req, res): Promise<void> => {
+  // --- Rate-limit check ---
+  const now = Date.now();
+  const lockUntil = req.session.pwChangeLockUntil ?? 0;
+  if (lockUntil > now) {
+    const retryAfterSec = Math.ceil((lockUntil - now) / 1000);
+    res.setHeader("Retry-After", String(retryAfterSec));
+    res.status(429).json({
+      error: `Too many failed attempts. Try again in ${Math.ceil(retryAfterSec / 60)} minute(s).`,
+    });
+    return;
+  }
+
   const { currentPassword, newPassword, confirmPassword } = req.body ?? {};
 
   if (
@@ -124,7 +139,24 @@ router.post("/admin/change-password", requireAdmin, async (req, res): Promise<vo
 
   const passwordMatch = await bcrypt.compare(currentPassword, admin.passwordHash);
   if (!passwordMatch) {
-    res.status(401).json({ error: "Current password is incorrect." });
+    const failures = (req.session.pwChangeFailures ?? 0) + 1;
+    req.session.pwChangeFailures = failures;
+
+    if (failures >= PW_CHANGE_MAX_FAILURES) {
+      req.session.pwChangeLockUntil = now + PW_CHANGE_COOLDOWN_MS;
+      req.session.pwChangeFailures = 0;
+      req.log.warn({ username: adminId, failures }, "Admin change-password locked out after too many failures");
+      const retryAfterSec = Math.ceil(PW_CHANGE_COOLDOWN_MS / 1000);
+      res.setHeader("Retry-After", String(retryAfterSec));
+      res.status(429).json({
+        error: `Too many failed attempts. Try again in ${Math.ceil(retryAfterSec / 60)} minute(s).`,
+      });
+    } else {
+      const remaining = PW_CHANGE_MAX_FAILURES - failures;
+      res.status(401).json({
+        error: `Current password is incorrect. ${remaining} attempt(s) remaining before lockout.`,
+      });
+    }
     return;
   }
 
@@ -134,6 +166,10 @@ router.post("/admin/change-password", requireAdmin, async (req, res): Promise<vo
     .update(adminUsersTable)
     .set({ passwordHash: newHash })
     .where(eq(adminUsersTable.username, adminId));
+
+  // Reset failure counters on success
+  req.session.pwChangeFailures = 0;
+  req.session.pwChangeLockUntil = 0;
 
   req.log.info({ username: adminId }, "Admin password changed");
 

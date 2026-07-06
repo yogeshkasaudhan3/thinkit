@@ -5,5 +5,9 @@ declare module "express-session" {
   interface SessionData {
     userId?: number;
     adminId?: string;
+    /** Count of consecutive failed change-password attempts for this session */
+    pwChangeFailures?: number;
+    /** Epoch ms at which the change-password lockout expires */
+    pwChangeLockUntil?: number;
   }
 }
