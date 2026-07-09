@@ -1,18 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
+/**
+ * Home page.
+ *
+ * Best Sellers and Dwarika Specials are fetched with targeted server requests
+ * (?isBestSeller=true&limit=12) instead of loading the full product catalogue.
+ * ProductCard is memoized to prevent re-renders when only cart qty changes for
+ * other products.
+ */
+import { useEffect, useState, useCallback, memo } from 'react';
 import { useLocation, Link } from 'wouter';
 import { motion } from 'framer-motion';
 import useEmblaCarousel from 'embla-carousel-react';
-import { Search, ChevronRight, Plus, Minus, Wheat, Milk, Droplets, Cookie, Flame, Coffee, Sparkles, Heart, Grid, ShoppingBag } from 'lucide-react';
+import { Search, ChevronRight, Plus, Minus, Wheat, Milk, Droplets, Cookie, Flame, Coffee, Sparkles, Heart, ShoppingBag } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { CATEGORY_COLORS, type Product } from '../lib/mockData';
-import { useProducts } from '../lib/useProducts';
 import { useBanners } from '../lib/useBanners';
 import { useCategories } from '../lib/useCategories';
 import { cloudinaryOpt } from '../lib/imgUtils';
 
-// ── Fallback icons for categories (used when no image/emoji is set) ───────────
+// ── Fallback icons for categories ─────────────────────────────────────────────
 const CATEGORY_ICONS: Record<string, { Icon: React.ElementType; bg: string; color: string }> = {
   '1': { Icon: Wheat,    bg: '#FEF3C7', color: '#D97706' },
   '2': { Icon: Milk,     bg: '#E0F2FE', color: '#0284C7' },
@@ -24,33 +31,53 @@ const CATEGORY_ICONS: Record<string, { Icon: React.ElementType; bg: string; colo
   '8': { Icon: Heart,    bg: '#FCE7F3', color: '#DB2777' },
 };
 
-export function ProductCard({ product }: { product: Product }) {
+// ── Targeted product fetcher (best-sellers / specials) ────────────────────────
+interface PagedResponse { items: Product[]; total: number; hasMore: boolean; }
+
+function useHomeSection(flag: 'isBestSeller' | 'isDwarikaSpecial'): Product[] {
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/products?${flag}=true&limit=12`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() as Promise<PagedResponse> : Promise.reject()))
+      .then(({ items }) => { if (!cancelled) setProducts(items); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [flag]);
+
+  return products;
+}
+
+// ── ProductCard (memoized) ────────────────────────────────────────────────────
+// Exported so SubcategoryPage, SearchPage, and ProductDetailPage can reuse it.
+
+export const ProductCard = memo(function ProductCard({ product }: { product: Product }) {
   const [, setLocation] = useLocation();
   const { cart, addToCart, updateQty } = useApp();
-  // Track image load state to show a skeleton while loading.
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
   const cartItem = cart.find(c => c.product.id === product.id);
   const qty = cartItem ? cartItem.qty : 0;
 
-  const handleAdd = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    addToCart(product);
-  };
-
-  const handleUpdate = (e: React.MouseEvent, newQty: number) => {
-    e.stopPropagation();
-    updateQty(product.id, newQty);
-  };
-
   const optimisedSrc = cloudinaryOpt(product.imageUrl, 400);
 
-  // Reset load/error state whenever the image source changes (e.g. admin re-uploads).
+  // Reset load/error state whenever the image source changes
   useEffect(() => {
     setImgLoaded(false);
     setImgError(false);
   }, [optimisedSrc]);
+
+  const handleAdd = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    addToCart(product);
+  }, [addToCart, product]);
+
+  const handleUpdate = useCallback((e: React.MouseEvent, newQty: number) => {
+    e.stopPropagation();
+    updateQty(product.id, newQty);
+  }, [updateQty, product.id]);
 
   return (
     <div
@@ -63,11 +90,10 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
       )}
 
-      {/* Image area — fixed 150 × full-width, object-contain, skeleton while loading */}
+      {/* Image area — fixed 150px height, skeleton while loading */}
       <div className="relative w-full bg-white border-b border-gray-100" style={{ height: 150 }}>
         {optimisedSrc && !imgError ? (
           <>
-            {/* Shimmer skeleton — visible until the image finishes loading */}
             {!imgLoaded && (
               <div className="absolute inset-0 bg-gray-100 animate-pulse rounded-t-xl" />
             )}
@@ -90,14 +116,13 @@ export function ProductCard({ product }: { product: Product }) {
             />
           </>
         ) : (
-          /* No image or broken image — text fallback */
           <div className="w-full h-full flex items-center justify-center p-3 text-center text-[11px] font-semibold text-gray-400">
             {product.brand || product.name}
           </div>
         )}
       </div>
 
-      {/* Product info — ~40% of card */}
+      {/* Product info */}
       <div className="px-2.5 pt-2 pb-2.5 flex-1 flex flex-col gap-0.5">
         <p className="text-[10px] text-gray-400 font-medium truncate">{product.weight}</p>
         <h3 className="font-semibold text-[12.5px] leading-tight text-gray-900 line-clamp-2 min-h-[34px]">{product.name}</h3>
@@ -139,18 +164,14 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
     </div>
   );
-}
+});
 
 // ── Category icon tile ────────────────────────────────────────────────────────
 
 function CategoryTile({ cat }: { cat: { id: number; name: string; emoji: string | null; imageUrl: string | null } }) {
   const style = CATEGORY_ICONS[String(cat.id)];
-
   return (
-    <Link
-      href={`/category/${cat.id}`}
-      className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
-    >
+    <Link href={`/category/${cat.id}`} className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
       <div
         className="w-16 h-16 rounded-2xl shadow-sm flex items-center justify-center overflow-hidden"
         style={{ backgroundColor: style ? style.bg : '#F3F4F6' }}
@@ -170,7 +191,7 @@ function CategoryTile({ cat }: { cat: { id: number; name: string; emoji: string 
   );
 }
 
-// ── Fallback banner slides (shown while DB banners load or if none exist) ─────
+// ── Fallback banner ───────────────────────────────────────────────────────────
 const FALLBACK_BANNERS = [
   {
     id: 0,
@@ -182,12 +203,17 @@ const FALLBACK_BANNERS = [
   },
 ];
 
+// ── Home page ─────────────────────────────────────────────────────────────────
+
 export default function HomePage() {
   const [, setLocation] = useLocation();
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
-  const { allProducts } = useProducts();
   const { banners, loading: bannersLoading } = useBanners();
   const { categories, loading: categoriesLoading } = useCategories();
+
+  // Targeted small fetches — no full catalogue load on home screen
+  const bestSellers    = useHomeSection('isBestSeller');
+  const dwarikaSpecials = useHomeSection('isDwarikaSpecial');
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -195,21 +221,7 @@ export default function HomePage() {
     return () => window.clearInterval(id);
   }, [emblaApi]);
 
-  const bestSellers = useMemo(() => {
-    const flagged = allProducts.filter(p => p.isBestSeller);
-    return (flagged.length > 0 ? flagged : allProducts).slice(0, 6);
-  }, [allProducts]);
-
-  const dwarikaSpecials = useMemo(() => {
-    const flagged = allProducts.filter(p => p.isDwarikaSpecial);
-    if (flagged.length > 0) return flagged.slice(0, 6);
-    return allProducts.slice(6, 12);
-  }, [allProducts]);
-
-  // Use live banners from DB; fall back to a default while loading or if empty
   const displayBanners = !bannersLoading && banners.length > 0 ? banners : FALLBACK_BANNERS;
-
-  // Show top 8 active categories
   const displayCategories = categories.slice(0, 8);
 
   return (
@@ -238,7 +250,6 @@ export default function HomePage() {
             {displayBanners.map((slide, idx) => (
               <div key={slide.id} className="flex-[0_0_100%] min-w-0">
                 {slide.imageUrl ? (
-                  /* Image banner — first slide is eager for LCP; rest are lazy */
                   <div className="relative h-36 rounded-2xl overflow-hidden bg-gray-100">
                     <img
                       src={slide.imageUrl}
@@ -257,7 +268,6 @@ export default function HomePage() {
                     </div>
                   </div>
                 ) : (
-                  /* Gradient banner */
                   <div className={`${slide.bg || 'bg-gradient-to-r from-primary to-primary/80'} p-6 rounded-2xl h-36 flex flex-col justify-center relative overflow-hidden`}>
                     <div className="relative z-10">
                       <h2 className="text-white font-bold text-2xl mb-1">{slide.title}</h2>
@@ -266,7 +276,7 @@ export default function HomePage() {
                         {slide.buttonText || 'Shop Now'}
                       </button>
                     </div>
-                    <div className="absolute right-[-20px] bottom-[-20px] w-32 h-32 bg-white/20 rounded-full blur-2xl"></div>
+                    <div className="absolute right-[-20px] bottom-[-20px] w-32 h-32 bg-white/20 rounded-full blur-2xl" />
                   </div>
                 )}
               </div>
@@ -306,6 +316,7 @@ export default function HomePage() {
         </button>
       </div>
 
+      {/* ── Best Sellers ── */}
       {bestSellers.length > 0 && (
         <div className="mt-6 py-4 bg-gradient-to-b from-green-50 to-transparent">
           <div className="px-4 flex justify-between items-end mb-4">
@@ -322,6 +333,7 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* ── Dwarika Specials ── */}
       {dwarikaSpecials.length > 0 && (
         <div className="mt-2 py-4">
           <div className="px-4 flex justify-between items-end mb-4">

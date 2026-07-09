@@ -1,3 +1,11 @@
+/**
+ * Product detail page.
+ *
+ * Fetches the product directly from /api/products/:id (always correct,
+ * regardless of what's in the slim global cache). Similar products come
+ * from a small server-side category fetch.
+ */
+import { useState, useEffect } from 'react';
 import { useRoute } from 'wouter';
 import { cloudinaryOpt } from '../lib/imgUtils';
 import { motion } from 'framer-motion';
@@ -5,20 +13,59 @@ import { Star, Clock, ShieldCheck, Plus, Minus } from 'lucide-react';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { ProductCard } from './HomePage';
-import { CATEGORY_COLORS } from '../lib/mockData';
-import { useProducts } from '../lib/useProducts';
+import { CATEGORY_COLORS, type Product } from '../lib/mockData';
 import { useApp } from '../context/AppContext';
+
+interface PagedResponse { items: Product[]; total: number; hasMore: boolean; }
+
+function useProductById(id: string | undefined): { product: Product | null; loading: boolean } {
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) { setLoading(false); return; }
+    let cancelled = false;
+    // Clear stale product so we never render the wrong product during transition
+    setProduct(null);
+    setLoading(true);
+    fetch(`/api/products/${id}`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (!cancelled) { setProduct(data ?? null); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setProduct(null); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  return { product, loading };
+}
+
+function useSimilarProducts(categoryId: string | undefined, excludeId: string | undefined): Product[] {
+  const [similar, setSimilar] = useState<Product[]>([]);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    let cancelled = false;
+    fetch(`/api/products?categoryId=${categoryId}&limit=5`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() as Promise<PagedResponse> : Promise.reject()))
+      .then(({ items }) => {
+        if (!cancelled)
+          setSimilar(items.filter((p) => p.id !== excludeId).slice(0, 4));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [categoryId, excludeId]);
+
+  return similar;
+}
 
 export default function ProductDetailPage() {
   const [, params] = useRoute('/product/:id');
   const productId = params?.id;
 
-  const { allProducts, loading } = useProducts();
+  const { product, loading } = useProductById(productId);
+  const similarProducts = useSimilarProducts(product?.categoryId, productId);
   const { cart, addToCart, updateQty } = useApp();
 
-  const product = allProducts.find(p => p.id === productId);
-
-  if (loading && !product) {
+  if (loading) {
     return (
       <div className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-white flex items-center justify-center">
         <p className="text-sm text-gray-400">Loading…</p>
@@ -29,11 +76,6 @@ export default function ProductDetailPage() {
   if (!product) return null;
 
   const effectiveColor = product.color || CATEGORY_COLORS[product.categoryId] || '#e8e8e8';
-
-  const similarProducts = allProducts
-    .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
-    .slice(0, 4);
-
   const cartItem = cart.find(c => c.product.id === product.id);
   const qty = cartItem ? cartItem.qty : 0;
 
@@ -68,7 +110,6 @@ export default function ProductDetailPage() {
               <span className="font-bold text-gray-800 text-lg leading-tight">{product.brand}</span>
             </div>
           )}
-
           <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-gray-700 flex items-center gap-1">
             <Clock size={12} /> 10 MINS
           </div>
@@ -101,7 +142,7 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Variant selection (mock) */}
+        {/* Variant selection */}
         <div className="p-5 border-b border-gray-100">
           <h3 className="font-semibold text-sm mb-3">Select Variant</h3>
           <div className="flex gap-3 overflow-x-auto no-scrollbar">

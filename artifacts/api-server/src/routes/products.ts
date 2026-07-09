@@ -1,28 +1,68 @@
 /**
  * Public product routes — no authentication required.
  * Only enabled products are exposed to the customer app.
+ *
+ * All list responses are paginated:
+ *   { items: Product[], total: number, hasMore: boolean }
+ *
+ * Query params (GET /products):
+ *   limit        — page size (default 20, max 50)
+ *   offset       — start index  (default 0)
+ *   categoryId   — filter by category
+ *   subcategory  — filter by subcategory name (exact match)
+ *   search       — ILIKE filter on name + brand (uses pg_trgm index)
+ *   isBestSeller — "true" to filter
+ *   isDwarikaSpecial — "true" to filter
  */
 import { Router, type IRouter } from "express";
 import { db, productsTable } from "@workspace/db";
-import { eq, ilike, and, or } from "drizzle-orm";
+import { eq, ilike, and, or, count, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-// ── List enabled products ────────────────────────────────────────────────────
+const MAX_LIMIT = 50;
+const DEFAULT_LIMIT = 20;
+
+function parseLimit(v: unknown): number {
+  const n = parseInt(String(v ?? ""), 10);
+  return isNaN(n) ? DEFAULT_LIMIT : Math.min(MAX_LIMIT, Math.max(1, n));
+}
+
+function parseOffset(v: unknown): number {
+  const n = parseInt(String(v ?? ""), 10);
+  return isNaN(n) ? 0 : Math.max(0, n);
+}
+
+// ── List enabled products (paginated) ────────────────────────────────────────
 router.get("/products", async (req, res): Promise<void> => {
   try {
-    const { categoryId, search, isBestSeller, isDwarikaSpecial } = req.query;
+    const {
+      categoryId,
+      subcategory,
+      search,
+      isBestSeller,
+      isDwarikaSpecial,
+      limit: limitQ,
+      offset: offsetQ,
+    } = req.query;
+
+    const limit = parseLimit(limitQ);
+    const offset = parseOffset(offsetQ);
 
     const conditions = [eq(productsTable.enabled, true)];
 
     if (categoryId && typeof categoryId === "string") {
       conditions.push(eq(productsTable.categoryId, categoryId));
     }
+    if (subcategory && typeof subcategory === "string" && subcategory.trim()) {
+      conditions.push(eq(productsTable.subcategory, subcategory.trim()));
+    }
     if (search && typeof search === "string" && search.trim()) {
+      const term = `%${search.trim()}%`;
       conditions.push(
         or(
-          ilike(productsTable.name, `%${search.trim()}%`),
-          ilike(productsTable.brand, `%${search.trim()}%`),
+          ilike(productsTable.name, term),
+          ilike(productsTable.brand, term),
         )!,
       );
     }
@@ -33,14 +73,27 @@ router.get("/products", async (req, res): Promise<void> => {
       conditions.push(eq(productsTable.isDwarikaSpecial, true));
     }
 
-    const products = await db
-      .select()
-      .from(productsTable)
-      .where(and(...conditions))
-      .orderBy(productsTable.name)
-      .limit(500);
+    const where = and(...conditions);
 
-    res.json(products.map(serializeProduct));
+    // Run count + page fetch in parallel
+    const [countRow, rows] = await Promise.all([
+      db.select({ n: count() }).from(productsTable).where(where),
+      db
+        .select()
+        .from(productsTable)
+        .where(where)
+        .orderBy(productsTable.name)
+        .limit(limit)
+        .offset(offset),
+    ]);
+
+    const total = Number(countRow[0]?.n ?? 0);
+
+    res.json({
+      items: rows.map(serializeProduct),
+      total,
+      hasMore: offset + rows.length < total,
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch products" });
   }

@@ -7,21 +7,22 @@
  *   ├──────────┬──────────────────────────┤
  *   │ Sidebar  │  Product grid            │
  *   │ (90px)   │  (2-col, independent     │
- *   │scrollable│   scroll)                │
+ *   │scrollable│   scroll + infinite)     │
  *   ├──────────┴──────────────────────────┤
  *   │            BottomNav                │
  *   └─────────────────────────────────────┘
  *
- * Both the sidebar and product area scroll independently.
- * Switching subcategory is instant — no page reload.
+ * Products are fetched server-side with pagination (20 / page).
+ * Selecting a subcategory filters server-side — no full-catalogue preload.
+ * IntersectionObserver at the bottom of the grid triggers loadMore().
  */
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRoute } from 'wouter';
 import { motion } from 'framer-motion';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { ProductCard } from './HomePage';
-import { useProducts } from '../lib/useProducts';
+import { useCategoryProducts } from '../lib/useCategoryProducts';
 import { useQuery } from '@tanstack/react-query';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,25 +49,33 @@ function bgFromName(name: string): string {
   return PASTEL_PALETTE[Math.abs(h) % PASTEL_PALETTE.length];
 }
 
+// ─── Skeleton card ─────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col animate-pulse">
+      <div className="h-[150px] bg-gray-100" />
+      <div className="px-2.5 pt-2 pb-2.5 flex flex-col gap-2">
+        <div className="h-2.5 bg-gray-100 rounded w-2/3" />
+        <div className="h-3 bg-gray-100 rounded w-full" />
+        <div className="h-3 bg-gray-100 rounded w-4/5" />
+        <div className="h-7 bg-gray-100 rounded-lg w-full mt-2" />
+      </div>
+    </div>
+  );
+}
+
 // ─── SidebarIcon ──────────────────────────────────────────────────────────────
 
 function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean }) {
   const [imgErr, setImgErr] = useState(false);
 
-  // Reset error state whenever the URL changes so a freshly uploaded image renders.
   useEffect(() => { setImgErr(false); }, [sub.imageUrl]);
 
   const isAll = sub.id === ALL_ID;
-
-  // Two-letter initials from name words; "★" for the All entry
   const initials = isAll
     ? '★'
-    : sub.name
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase();
+    : sub.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
   return (
     <div
@@ -79,9 +88,7 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
         borderWidth: active ? 2 : 1.5,
         borderStyle: 'solid',
         borderColor: active ? '#16A34A' : '#E5E7EB',
-        boxShadow: active
-          ? '0 2px 8px rgba(22,163,74,0.20)'
-          : '0 1px 3px rgba(0,0,0,0.06)',
+        boxShadow: active ? '0 2px 8px rgba(22,163,74,0.20)' : '0 1px 3px rgba(0,0,0,0.06)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -99,14 +106,7 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
-        <span
-          style={{
-            fontSize: isAll ? 18 : 15,
-            fontWeight: 700,
-            color: '#374151',
-            userSelect: 'none',
-          }}
-        >
+        <span style={{ fontSize: isAll ? 18 : 15, fontWeight: 700, color: '#374151', userSelect: 'none' }}>
           {initials}
         </span>
       )}
@@ -116,15 +116,7 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
 
 // ─── SidebarItem ──────────────────────────────────────────────────────────────
 
-function SidebarItem({
-  sub,
-  active,
-  onClick,
-}: {
-  sub: SubcategoryInfo;
-  active: boolean;
-  onClick: () => void;
-}) {
+function SidebarItem({ sub, active, onClick }: { sub: SubcategoryInfo; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -164,11 +156,7 @@ function SidebarItem({
 // ─── Category info hook ───────────────────────────────────────────────────────
 
 function useCategoryInfo(id: string | undefined) {
-  const [category, setCategory] = useState<{
-    id: number;
-    name: string;
-    emoji: string;
-  } | null>(null);
+  const [category, setCategory] = useState<{ id: number; name: string; emoji: string } | null>(null);
 
   useEffect(() => {
     setCategory(null);
@@ -177,15 +165,10 @@ function useCategoryInfo(id: string | undefined) {
     fetch('/api/categories', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : []))
       .then((cats: { id: number; name: string; emoji: string }[]) => {
-        if (!cancelled) {
-          const found = cats.find((c) => String(c.id) === id);
-          setCategory(found ?? null);
-        }
+        if (!cancelled) setCategory(cats.find((c) => String(c.id) === id) ?? null);
       })
       .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id]);
 
   return category;
@@ -200,20 +183,7 @@ export default function SubcategoryPage() {
   const category = useCategoryInfo(categoryId);
   const [activeId, setActiveId] = useState<number>(ALL_ID);
   const prevCategoryIdRef = useRef<string | undefined>(undefined);
-
-  const { products: categoryProducts, loading } = useProducts(
-    categoryId ? { categoryId } : undefined,
-  );
-
-  // Fetch subcategory list — returns { id, name, imageUrl }[]
-  const { data: subcategories = [] } = useQuery<SubcategoryInfo[]>({
-    queryKey: ['/api/categories', categoryId, 'subcategories'],
-    queryFn: () =>
-      fetch(`/api/categories/${categoryId}/subcategories`, {
-        credentials: 'include',
-      }).then((r) => (r.ok ? r.json() : [])),
-    enabled: !!categoryId,
-  });
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Reset to "All" whenever the user navigates to a different category
   useEffect(() => {
@@ -223,24 +193,40 @@ export default function SubcategoryPage() {
     }
   }, [categoryId]);
 
-  // "All" entry is always the first item in the sidebar
-  const sidebarItems: SubcategoryInfo[] = [ALL_ENTRY, ...subcategories];
+  // Fetch subcategory list — returns { id, name, imageUrl }[]
+  const { data: subcategories = [] } = useQuery<SubcategoryInfo[]>({
+    queryKey: ['/api/categories', categoryId, 'subcategories'],
+    queryFn: () =>
+      fetch(`/api/categories/${categoryId}/subcategories`, { credentials: 'include' })
+        .then((r) => (r.ok ? r.json() : [])),
+    enabled: !!categoryId,
+  });
 
-  // Filter products instantly — no API call needed
-  const displayProducts = useMemo(() => {
-    if (activeId === ALL_ID) return categoryProducts;
-    const activeSub = subcategories.find((s) => s.id === activeId);
-    if (!activeSub) return categoryProducts;
-    return categoryProducts.filter(
-      (p) => p.subcategory?.trim() === activeSub.name,
+  // Derive the active subcategory name for server-side filtering.
+  // null = "All" (no subcategory filter).
+  const activeSubName = activeId === ALL_ID
+    ? null
+    : (subcategories.find((s) => s.id === activeId)?.name ?? null);
+
+  const { products, loading, loadingMore, hasMore, total, loadMore } =
+    useCategoryProducts(categoryId, activeSubName);
+
+  // IntersectionObserver fires loadMore when the sentinel enters the viewport
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      { rootMargin: '200px' },
     );
-  }, [categoryProducts, subcategories, activeId]);
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
-  const activeName =
-    activeId === ALL_ID
-      ? 'All Products'
-      : (subcategories.find((s) => s.id === activeId)?.name ?? 'All Products');
-
+  const sidebarItems: SubcategoryInfo[] = [ALL_ENTRY, ...subcategories];
+  const activeName = activeId === ALL_ID
+    ? 'All Products'
+    : (subcategories.find((s) => s.id === activeId)?.name ?? 'All Products');
   const title = category?.name ?? '';
 
   return (
@@ -259,10 +245,8 @@ export default function SubcategoryPage() {
         overflow: 'hidden',
       }}
     >
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <AppHeader title={title} showBack />
 
-      {/* ── Body: sidebar + products (each scrolls independently) ──────────── */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
         {/* Left sidebar */}
@@ -274,7 +258,7 @@ export default function SubcategoryPage() {
             borderRight: '1px solid #F0F0F0',
             overflowY: 'auto',
             overflowX: 'hidden',
-            // @ts-ignore — webkit-specific
+            // @ts-ignore
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
           }}
@@ -301,7 +285,7 @@ export default function SubcategoryPage() {
             scrollbarWidth: 'none',
           }}
         >
-          {/* Sticky section header — only when subcategories exist */}
+          {/* Sticky section header */}
           {subcategories.length > 0 && (
             <div
               style={{
@@ -313,51 +297,47 @@ export default function SubcategoryPage() {
                 zIndex: 5,
               }}
             >
-              <span
-                style={{ fontWeight: 700, fontSize: 13, color: '#111827' }}
-              >
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>
                 {activeName}
               </span>
               {!loading && (
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: '#9CA3AF',
-                    marginLeft: 5,
-                  }}
-                >
-                  {displayProducts.length} item
-                  {displayProducts.length !== 1 ? 's' : ''}
+                <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 5 }}>
+                  {total} item{total !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
           )}
 
-          {/* Product grid — bottom padding clears the BottomNav (fixed ~64px + safe area) */}
-          <div style={{ padding: '10px 8px', paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
+          {/* Product grid */}
+          <div
+            style={{
+              padding: '10px 8px',
+              paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+            }}
+          >
             {loading ? (
-              <div className="flex flex-col items-center justify-center h-48 gap-3 text-gray-400">
-                <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-green-600 animate-spin" />
-                <span className="text-sm">Loading…</span>
+              /* First-page skeleton — 6 cards in a 2-col grid */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
               </div>
-            ) : displayProducts.length > 0 ? (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 8,
-                }}
-              >
-                {displayProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
+            ) : products.length > 0 ? (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {products.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                  {/* Skeleton rows while loading more */}
+                  {loadingMore && Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
+                </div>
+                {/* Infinite-scroll sentinel */}
+                <div ref={sentinelRef} style={{ height: 1 }} />
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center h-48 gap-2 text-gray-400">
                 <span className="text-3xl">📦</span>
                 <span className="text-sm text-center px-4">
-                  {subcategories.length > 0
-                    ? 'No products in this section yet.'
+                  {activeId !== ALL_ID
+                    ? 'No products in this subcategory yet.'
                     : 'No products found in this category.'}
                 </span>
               </div>
@@ -366,7 +346,6 @@ export default function SubcategoryPage() {
         </main>
       </div>
 
-      {/* ── Bottom nav ─────────────────────────────────────────────────────── */}
       <BottomNav />
     </motion.div>
   );

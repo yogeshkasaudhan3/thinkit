@@ -11,3 +11,4 @@
 - [Inventory sync architecture](inventory-sync.md) — Vyapar XLSX → update-only; SheetJS server parse; base64 in JSON (15 MB limit); transaction for 3000+ products; clear base64 before FileReader fires; 3-tier matching (barcode→exact→normalized); preview endpoint is read-only (no upsert in loadRefData)
 - [Vyapar bulk import](vyapar-bulk-import.md) — POST /api/admin/products/vyapar-import; CSV+XLSX via SheetJS; auto-create categories; upsert products; brand/weight default ""; imageUrl null; categoryId=String(cat.id)
 - [Subcategory definitions architecture](subcategory-definitions.md) — master subcategory_definitions table; tabs from master list not products; admin CRUD via /admin/subcategories/:id
+- [Performance optimization architecture](perf-optimization.md) — paginated API envelope, useCategoryProducts hook, slim useProducts, server-side search, DB indexes

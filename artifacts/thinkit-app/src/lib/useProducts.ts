@@ -1,17 +1,27 @@
 /**
- * Module-level product cache.
+ * Slim module-level product cache.
  *
- * The first component that calls useProducts() triggers a single fetch.
- * All subsequent calls (even from different components) share the same
- * cached array and re-render together when data arrives.
+ * Fetches the first 100 products (alphabetical) once and shares them across
+ * all subscribers. Used primarily by CartRecommendations (affinity suggestions)
+ * and as a fallback for ProductDetailPage.
  *
- * Refresh policy: cache expires after TTL_MS (5 minutes) so that an
- * already-open customer session picks up admin edits without a full reload.
+ * For category browsing use useCategoryProducts (paginated, server-side filtered).
+ * For search use the server-side search endpoint directly (SearchPage).
+ * For home-page best-sellers / specials use useHomeProducts (targeted fetches).
+ *
+ * Refresh policy: cache expires after TTL_MS (5 minutes).
  */
 import { useState, useEffect } from 'react';
 import type { Product } from './mockData';
 
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_LIMIT = 100;
+
+interface PagedResponse {
+  items: Product[];
+  total: number;
+  hasMore: boolean;
+}
 
 let cachedProducts: Product[] | null = null;
 let loadedAt: number | null = null;
@@ -30,15 +40,14 @@ function ensureLoaded() {
   if (loadState === 'loading') return;
   if (loadState === 'done' && isFresh()) return;
 
-  // Expired or not yet loaded — fetch now
   loadState = 'loading';
-  fetch('/api/products', { credentials: 'include' })
+  fetch(`/api/products?limit=${CACHE_LIMIT}&offset=0`, { credentials: 'include' })
     .then((r) => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json() as Promise<Product[]>;
+      return r.json() as Promise<PagedResponse>;
     })
-    .then((data) => {
-      cachedProducts = data;
+    .then(({ items }) => {
+      cachedProducts = items;
       loadedAt = Date.now();
       loadState = 'done';
       notify();
@@ -55,21 +64,14 @@ export function invalidateProductsCache() {
   if (loadState === 'done') loadState = 'idle';
 }
 
-export interface UseProductsOptions {
-  /** Filter by category ID (client-side, after the shared fetch). */
-  categoryId?: string;
-}
-
 export interface UseProductsResult {
-  /** Products matching the requested filter. */
-  products: Product[];
-  /** All enabled products (unfiltered) — for search and recommendations. */
+  /** First 100 enabled products — for CartRecommendations and similar-product lookups. */
   allProducts: Product[];
   loading: boolean;
   error: boolean;
 }
 
-export function useProducts(options?: UseProductsOptions): UseProductsResult {
+export function useProducts(): UseProductsResult {
   const [, rerender] = useState(0);
 
   useEffect(() => {
@@ -85,8 +87,5 @@ export function useProducts(options?: UseProductsOptions): UseProductsResult {
   const error = loadState === 'error';
   const all = cachedProducts ?? [];
 
-  const products =
-    options?.categoryId ? all.filter((p) => p.categoryId === options.categoryId) : all;
-
-  return { products, allProducts: all, loading, error };
+  return { allProducts: all, loading, error };
 }
