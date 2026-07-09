@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
@@ -61,5 +61,14 @@ app.use(
 );
 
 app.use("/api", router);
+
+// Global error handler — must be registered last, after all routes.
+// Logs the full error server-side and returns a sanitized message to the client.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const log = (req as any).log ?? logger;
+  log.error({ err }, "Unhandled server error");
+  res.status(500).json({ error: "Internal server error" });
+});
 
 export default app;
