@@ -160,9 +160,15 @@ type PasswordFormValues = {
 
 function ChangePasswordSection() {
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  const { data: meData } = useQuery<{ username: string; passwordChangedAt: string | null }>({
+    queryKey: ['/api/admin/me'],
+    queryFn: () => adminFetch('/api/admin/me'),
+  });
 
   const form = useForm<PasswordFormValues>({
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
@@ -182,6 +188,7 @@ function ChangePasswordSection() {
     onSuccess: () => {
       toast({ title: 'Password changed', description: 'Your admin password has been updated successfully.' });
       form.reset();
+      qc.invalidateQueries({ queryKey: ['/api/admin/me'] });
     },
     onError: (err: any) => {
       toast({ title: 'Failed to change password', description: err.message, variant: 'destructive' });
@@ -301,6 +308,14 @@ function ChangePasswordSection() {
           Update Password
         </Button>
       </form>
+
+      {meData && (
+        <p className="text-xs text-muted-foreground pt-2 border-t border-border">
+          {meData.passwordChangedAt
+            ? <>Password last changed: <span className="font-medium text-foreground">{new Date(meData.passwordChangedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span></>
+            : 'Password has never been changed via this panel.'}
+        </p>
+      )}
     </Section>
   );
 }

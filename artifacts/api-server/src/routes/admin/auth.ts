@@ -77,12 +77,22 @@ router.post("/admin/logout", requireAdmin, (req, res): void => {
   });
 });
 
-router.get("/admin/me", (req, res): void => {
+router.get("/admin/me", async (req, res): Promise<void> => {
   if (!req.session.adminId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  res.json({ username: req.session.adminId });
+
+  const [admin] = await db
+    .select()
+    .from(adminUsersTable)
+    .where(eq(adminUsersTable.username, req.session.adminId))
+    .limit(1);
+
+  res.json({
+    username: req.session.adminId,
+    passwordChangedAt: admin?.passwordChangedAt ?? null,
+  });
 });
 
 const PW_CHANGE_MAX_FAILURES = 5;
@@ -161,10 +171,11 @@ router.post("/admin/change-password", requireAdmin, async (req, res): Promise<vo
   }
 
   const newHash = await bcrypt.hash(newPassword, 12);
+  const now2 = new Date();
 
   await db
     .update(adminUsersTable)
-    .set({ passwordHash: newHash })
+    .set({ passwordHash: newHash, passwordChangedAt: now2 })
     .where(eq(adminUsersTable.username, adminId));
 
   // Reset failure counters on success
@@ -173,7 +184,7 @@ router.post("/admin/change-password", requireAdmin, async (req, res): Promise<vo
 
   req.log.info({ username: adminId }, "Admin password changed");
 
-  res.json({ ok: true });
+  res.json({ ok: true, passwordChangedAt: now2.toISOString() });
 });
 
 export default router;
