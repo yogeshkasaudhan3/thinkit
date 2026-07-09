@@ -98,7 +98,8 @@ export default function ProductDetailPage() {
             <img
               src={cloudinaryOpt(product.imageUrl, 600) ?? product.imageUrl}
               alt={product.name}
-              loading="lazy"
+              loading="eager"
+              fetchPriority="high"
               decoding="async"
               className="w-40 h-40 object-contain"
             />

@@ -4,6 +4,7 @@ import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { ChevronRight, ShoppingBag } from 'lucide-react';
 import { useCategories } from '../lib/useCategories';
+import { cloudinaryOpt } from '../lib/imgUtils';
 
 // ── Fallback icon colours for categories that don't have an image ────────────
 const CAT_COLORS: Record<string, string> = {
@@ -47,7 +48,7 @@ export default function CategoriesPage() {
                   >
                     {cat.imageUrl ? (
                       <img
-                        src={cat.imageUrl}
+                        src={cloudinaryOpt(cat.imageUrl, 112) ?? cat.imageUrl}
                         alt={cat.name}
                         loading="lazy"
                         decoding="async"

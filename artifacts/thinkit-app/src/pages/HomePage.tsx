@@ -177,7 +177,7 @@ function CategoryTile({ cat }: { cat: { id: number; name: string; emoji: string 
         style={{ backgroundColor: style ? style.bg : '#F3F4F6' }}
       >
         {cat.imageUrl ? (
-          <img src={cat.imageUrl} alt={cat.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+          <img src={cloudinaryOpt(cat.imageUrl, 128) ?? cat.imageUrl} alt={cat.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : cat.emoji ? (
           <span className="text-3xl">{cat.emoji}</span>
         ) : style ? (
@@ -252,7 +252,7 @@ export default function HomePage() {
                 {slide.imageUrl ? (
                   <div className="relative h-36 rounded-2xl overflow-hidden bg-gray-100">
                     <img
-                      src={slide.imageUrl}
+                      src={cloudinaryOpt(slide.imageUrl, 780) ?? slide.imageUrl}
                       alt={slide.title}
                       loading={idx === 0 ? 'eager' : 'lazy'}
                       fetchPriority={idx === 0 ? 'high' : 'auto'}

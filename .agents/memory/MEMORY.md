@@ -12,3 +12,4 @@
 - [Vyapar bulk import](vyapar-bulk-import.md) — POST /api/admin/products/vyapar-import; CSV+XLSX via SheetJS; auto-create categories; upsert products; brand/weight default ""; imageUrl null; categoryId=String(cat.id)
 - [Subcategory definitions architecture](subcategory-definitions.md) — master subcategory_definitions table; tabs from master list not products; admin CRUD via /admin/subcategories/:id
 - [Performance optimization architecture](perf-optimization.md) — paginated API envelope, useCategoryProducts hook, slim useProducts, server-side search, DB indexes
+- [Image optimization architecture](image-optimization.md) — Sharp proxy pipeline (?w=N → WebP) for GCS images; cloudinaryOpt() for Cloudinary; loading priorities by context
