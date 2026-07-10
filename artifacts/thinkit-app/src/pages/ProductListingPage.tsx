@@ -43,10 +43,16 @@ export default function ProductListingPage() {
   usePreloadImages(allLoaded, 6);
 
   // Client-side price/stock filter on already-loaded pages
-  let products: Product[] = allLoaded;
-  if (filter === 'Under ₹100') products = allLoaded.filter(p => p.price < 100);
-  if (filter === 'Under ₹50')  products = allLoaded.filter(p => p.price < 50);
-  if (filter === 'In Stock')   products = allLoaded.filter(p => p.inStock);
+  let filtered: Product[] = allLoaded;
+  if (filter === 'Under ₹100') filtered = allLoaded.filter(p => p.price < 100);
+  if (filter === 'Under ₹50')  filtered = allLoaded.filter(p => p.price < 50);
+  if (filter === 'In Stock')   filtered = allLoaded.filter(p => p.inStock);
+
+  // Show in-stock products first; preserve existing relative order within each group
+  const products = [
+    ...filtered.filter(p => p.inStock),
+    ...filtered.filter(p => !p.inStock),
+  ];
 
   const title = categoryId === 'all'
     ? 'All Products'

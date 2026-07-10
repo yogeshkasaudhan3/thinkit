@@ -16,7 +16,7 @@
  * Selecting a subcategory filters server-side — no full-catalogue preload.
  * IntersectionObserver at the bottom of the grid triggers loadMore().
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRoute } from 'wouter';
 import { motion } from 'framer-motion';
 import AppHeader from '../components/AppHeader';
@@ -215,8 +215,14 @@ export default function SubcategoryPage() {
   const { products, loading, loadingMore, hasMore, total, loadMore } =
     useCategoryProducts(categoryId, activeSubName);
 
+  // Show in-stock products first; preserve relative order within each group
+  const displayProducts = useMemo(() => [
+    ...products.filter(p => p.inStock),
+    ...products.filter(p => !p.inStock),
+  ], [products]);
+
   // Preload first 6 above-the-fold images whenever the product list changes
-  usePreloadImages(products, 6);
+  usePreloadImages(displayProducts, 6);
 
   // IntersectionObserver fires loadMore when the sentinel enters the viewport
   useEffect(() => {
@@ -326,10 +332,10 @@ export default function SubcategoryPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
               </div>
-            ) : products.length > 0 ? (
+            ) : displayProducts.length > 0 ? (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {products.map((product, index) => (
+                  {displayProducts.map((product, index) => (
                     // priority=true for the first 6 cards (3 rows × 2 cols) —
                     // the typical above-the-fold count on a 390 px mobile screen
                     <ProductCard key={product.id} product={product} priority={index < 6} />

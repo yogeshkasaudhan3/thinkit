@@ -1,0 +1,84 @@
+BUG FIX ONLY
+
+There is one UX issue on the Category > Product Listing page.
+
+Current behavior:
+Products that are Out of Stock appear randomly throughout the product list.
+
+Example:
+Product A (In Stock)
+Product B (Out of Stock)
+Product C (In Stock)
+Product D (Out of Stock)
+
+This creates a poor shopping experience.
+
+--------------------------------------------------
+Required Behavior
+--------------------------------------------------
+
+Show all IN STOCK products first.
+
+Show all OUT OF STOCK products at the very end of the list.
+
+Example:
+
+Product A (In Stock)
+Product C (In Stock)
+Product E (In Stock)
+...
+--------------------------------
+Product B (Out of Stock)
+Product D (Out of Stock)
+Product F (Out of Stock)
+
+--------------------------------------------------
+Requirements
+--------------------------------------------------
+
+• Keep the existing product order for all In Stock products.
+• Keep the existing product order for all Out of Stock products.
+• Only move Out of Stock products below all available products.
+• Do NOT change any other sorting logic (name, featured, best seller, etc.).
+• Do NOT change pagination.
+• Do NOT change category or subcategory filtering.
+• Do NOT change the product card design.
+• Do NOT affect search results.
+• Do NOT affect Home page sections.
+• Apply this only to Category Product Listing pages.
+
+--------------------------------------------------
+Implementation
+--------------------------------------------------
+
+Before rendering the product list:
+
+1. Separate products into:
+   - In Stock
+   - Out of Stock
+
+2. Concatenate:
+
+displayProducts = [
+   ...inStockProducts,
+   ...outOfStockProducts
+]
+
+Use a stable sort so the relative order inside each group remains unchanged.
+
+--------------------------------------------------
+Verification
+--------------------------------------------------
+
+After implementation verify:
+
+✓ All available products appear first.
+✓ All Out of Stock products appear at the bottom.
+✓ Existing ordering inside both groups remains unchanged.
+✓ No regressions in search, home page, cart, or other screens.
+
+IMPORTANT:
+
+This is a BUG FIX ONLY.
+
+Do NOT modify any other functionality, UI, styling, API, performance optimization, or business logic.
