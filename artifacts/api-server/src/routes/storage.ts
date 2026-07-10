@@ -167,23 +167,52 @@ async function serveImage(
       })
       .webp({ quality: 82 });
 
-    // pipeline() automatically destroys all three streams on any error or
-    // client disconnect — preventing stream leaks and partial responses.
-    pipeline(srcStream, transform, res, (err) => {
-      if (err && err.code !== "ERR_STREAM_PREMATURE_CLOSE") {
-        req.log.error({ err }, "Sharp image pipeline error");
-        // Headers may already be sent if the error occurred mid-stream;
-        // destroy() silently cleans up the socket either way.
-        res.destroy();
+    // When the client disconnects (browser navigates away, cancels the request,
+    // or the preload hook removes the <link> tag), destroy the GCS read stream
+    // immediately so GCS stops downloading data and doesn't fire a secondary
+    // ERR_STREAM_UNABLE_TO_PIPE error event after the response is already closed.
+    const onClientClose = () => srcStream.destroy();
+    req.on("close", onClientClose);
+
+    // Absorb any error that GCS emits asynchronously after the client disconnect.
+    // The pipeline callback already handles ERR_STREAM_PREMATURE_CLOSE; this
+    // catches the secondary internal GCS errors (ERR_STREAM_UNABLE_TO_PIPE, ECONNRESET)
+    // that propagate through the GCS client's own event chain after the abort.
+    srcStream.on("error", (err: NodeJS.ErrnoException) => {
+      const silent = ["ERR_STREAM_PREMATURE_CLOSE", "ERR_STREAM_UNABLE_TO_PIPE", "ECONNRESET"];
+      if (!silent.includes(err.code ?? "")) {
+        req.log.error({ err }, "GCS source stream error");
       }
     });
+
+    // pipeline() automatically destroys all three streams on any error or
+    // client disconnect — preventing stream leaks and partial responses.
+    // Wrap in try/catch: pipeline() can throw synchronously (ERR_STREAM_UNABLE_TO_PIPE)
+    // if res is already destroyed when it is called.
+    try {
+      pipeline(srcStream, transform, res, (err) => {
+        req.off("close", onClientClose);
+        const silent = ["ERR_STREAM_PREMATURE_CLOSE", "ERR_STREAM_UNABLE_TO_PIPE", "ECONNRESET"];
+        if (err && !silent.includes((err as NodeJS.ErrnoException).code ?? "")) {
+          req.log.error({ err }, "Sharp image pipeline error");
+          res.destroy();
+        }
+      });
+    } catch (err) {
+      req.off("close", onClientClose);
+      // Synchronous throw — client was already gone; nothing to send back.
+    }
   } else {
     // Original: stream as-is using the existing helper (sets Content-Type + Cache-Control)
     const response = await objectStorageService.downloadObject(file);
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
     if (response.body) {
-      Readable.fromWeb(response.body as ReadableStream<Uint8Array>).pipe(res);
+      const src = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+      // Absorb GCS-internal errors emitted after the client has already disconnected.
+      src.on("error", () => { /* swallow — client gone */ });
+      src.pipe(res);
+      req.on("close", () => src.destroy());
     } else {
       res.end();
     }
