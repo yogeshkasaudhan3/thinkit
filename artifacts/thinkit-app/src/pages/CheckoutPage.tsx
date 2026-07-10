@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'wouter';
 import { motion } from 'framer-motion';
 import { MapPin, Phone, Lock, Edit3, CheckCircle2 } from 'lucide-react';
@@ -11,18 +11,24 @@ export default function CheckoutPage() {
   const { user, cart, cartTotal, paymentMethod, orderNote, clearCart } = useApp();
   const [isPlacing, setIsPlacing] = useState(false);
 
-  // If somehow reached without cart/user
-  if (!user) {
-    setLocation('/signin');
-    return null;
-  }
-  if (cart.length === 0) {
-    setLocation('/cart');
-    return null;
-  }
-
   // ── Pricing from live store settings ────────────────────────────────────────
+  // Must be called unconditionally before any early returns so hook order is stable
   const { settings } = useStoreSettings();
+
+  // Navigate away if no user, or cart is empty and we're not mid-placement.
+  // Using useEffect avoids calling setLocation during the render phase, which
+  // triggers React's concurrent rendering error.
+  // Single effect preserves guard precedence: auth redirect takes priority over cart redirect.
+  useEffect(() => {
+    if (!user) {
+      setLocation('/signin');
+    } else if (!isPlacing && cart.length === 0) {
+      setLocation('/cart');
+    }
+  }, [user, isPlacing, cart.length, setLocation]);
+
+  // Render nothing while redirecting
+  if (!user || (!isPlacing && cart.length === 0)) return null;
   const handlingFee  = settings.handlingFee;
   const smallCartFee = cartTotal > 0 && cartTotal < settings.smallCartFeeThreshold ? settings.smallCartFee : 0;
   const deliveryFee  = cartTotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
