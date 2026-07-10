@@ -7,6 +7,7 @@ import { Router, type IRouter } from "express";
 import { db, subcategoryDefinitionsTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/requireAdmin";
+import { normalizeSubcategory } from "./products";
 
 const router: IRouter = Router();
 
@@ -45,7 +46,7 @@ router.post(
       return;
     }
     const body = req.body as Record<string, unknown>;
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const name = normalizeSubcategory(typeof body.name === "string" ? body.name : "");
     if (!name) {
       res.status(400).json({ error: "name is required" });
       return;
@@ -79,7 +80,7 @@ router.patch(
     const updates: Record<string, unknown> = { updatedAt: new Date() };
 
     if (typeof body.name === "string" && body.name.trim()) {
-      updates.name = body.name.trim();
+      updates.name = normalizeSubcategory(body.name) ?? body.name.trim();
     }
     if (typeof body.displayOrder === "number") {
       updates.displayOrder = body.displayOrder;
