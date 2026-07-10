@@ -48,6 +48,10 @@ app.use(
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    // Rolling sessions: reset the TTL (and re-send the cookie with the new
+    // expiry) on every authenticated response, so the 8-hour window slides
+    // from the last activity rather than from login time.
+    rolling: true,
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
