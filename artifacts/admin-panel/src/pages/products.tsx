@@ -4,7 +4,7 @@ import { Link, useLocation, useSearch } from 'wouter';
 import {
   Search, Plus, Upload, Loader2, Package, Pencil, MoreVertical,
   X, ChevronLeft, ChevronRight, Zap, TrendingDown, Sparkles, CheckCircle2, AlertCircle,
-  Tag, CheckSquare,
+  Tag, CheckSquare, AlertTriangle,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -81,7 +81,7 @@ function useSubcategoryOptions(categoryId: string) {
   });
 }
 
-interface ProductStats { total: number; inStock: number; outOfStock: number; noSubcategory: number; }
+interface ProductStats { total: number; inStock: number; outOfStock: number; noSubcategory: number; orphanSubcategory: number; }
 
 function useProductStats(qs: string) {
   return useQuery<ProductStats>({
@@ -217,6 +217,7 @@ export default function Products() {
   const subcatFilter   = urlParams.get('sub')   || '';
   const stockFilter    = (urlParams.get('stock') as 'all' | 'in' | 'out') || 'all';
   const noSubcatFilter = urlParams.get('nosub') === '1';
+  const orphanFilter   = urlParams.get('orphan') === '1';
   const sort           = urlParams.get('sort')  || 'name-asc';
 
   // Search term has its own local state for the input (debounce before hitting URL)
@@ -310,15 +311,16 @@ export default function Products() {
   const { data: subcatOptions = [] } = useSubcategoryOptions(categoryFilter);
 
   const baseFilters = {
-    q:             debouncedSearch  || undefined,
-    category:      categoryFilter   || undefined,
-    subcategory:   subcatFilter     || undefined,
-    inStock:       stockFilter === 'in' ? true : stockFilter === 'out' ? false : undefined,
-    noSubcategory: noSubcatFilter   || undefined,
+    q:                  debouncedSearch  || undefined,
+    category:           categoryFilter   || undefined,
+    subcategory:        subcatFilter     || undefined,
+    inStock:            stockFilter === 'in' ? true : stockFilter === 'out' ? false : undefined,
+    noSubcategory:      noSubcatFilter   || undefined,
+    subcategoryOrphan:  orphanFilter     || undefined,
   };
 
-  // Stats strip both inStock and noSubcategory so we always get the full bucket counts
-  const statsQS = buildQS({ ...baseFilters, inStock: undefined, noSubcategory: undefined });
+  // Stats strip inStock, noSubcategory, and orphan so we always get the full bucket counts
+  const statsQS = buildQS({ ...baseFilters, inStock: undefined, noSubcategory: undefined, subcategoryOrphan: undefined });
   const listQS  = buildQS({ ...baseFilters, sort, page, pageSize: PAGE_SIZE });
 
   const { data: stats }                        = useProductStats(statsQS);
@@ -329,13 +331,14 @@ export default function Products() {
 
   // Pagination — totalFiltered respects the active filter for correct page count
   const totalFiltered = stats
-    ? noSubcatFilter        ? (stats.noSubcategory ?? 0)
+    ? orphanFilter          ? (stats.orphanSubcategory ?? 0)
+    : noSubcatFilter        ? (stats.noSubcategory ?? 0)
     : stockFilter === 'in'  ? stats.inStock
     : stockFilter === 'out' ? stats.outOfStock
     : stats.total
     : 0;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
-  const hasFilters = !!(debouncedSearch || categoryFilter || subcatFilter || stockFilter !== 'all' || noSubcatFilter);
+  const hasFilters = !!(debouncedSearch || categoryFilter || subcatFilter || stockFilter !== 'all' || noSubcatFilter || orphanFilter);
 
   // ── Scroll position restoration ───────────────────────────────────────────
 
@@ -370,6 +373,8 @@ export default function Products() {
     updateUrl({ stock: v === 'all' ? undefined : v, page: undefined });
   const setNoSubcatFilter = (v: boolean) =>
     updateUrl({ nosub: v ? '1' : undefined, page: undefined });
+  const setOrphanFilter = (v: boolean) =>
+    updateUrl({ orphan: v ? '1' : undefined, page: undefined });
   const setSort = (v: string) =>
     updateUrl({ sort: v === 'name-asc' ? undefined : v, page: undefined });
   const setPage = (p: number) =>
@@ -479,7 +484,7 @@ export default function Products() {
       </div>
 
       {/* ── Stats bar ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="bg-card border border-border rounded-xl p-4 text-center shadow-sm">
           <div className="text-2xl font-bold text-foreground tabular-nums">
             {stats ? stats.total.toLocaleString() : <span className="text-muted-foreground text-lg">…</span>}
@@ -516,6 +521,27 @@ export default function Products() {
           <div className={`text-xs mt-0.5 font-medium flex items-center justify-center gap-1 ${noSubcatFilter ? 'text-amber-700' : 'text-muted-foreground'}`}>
             <Tag className="h-3 w-3" /> No Subcategory
             {noSubcatFilter && <span className="ml-1 text-[10px] bg-amber-200 text-amber-800 rounded px-1">filtered</span>}
+          </div>
+        </button>
+
+        {/* Ghost Subcategory — has a subcategory not in the master list */}
+        <button
+          type="button"
+          onClick={() => setOrphanFilter(!orphanFilter)}
+          className={`rounded-xl p-4 text-center shadow-sm border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring col-span-2 sm:col-span-1 ${
+            orphanFilter
+              ? 'bg-orange-50 border-orange-300 ring-1 ring-orange-300'
+              : (stats?.orphanSubcategory ?? 0) > 0
+                ? 'bg-card border-orange-200 hover:bg-orange-50/60'
+                : 'bg-card border-border hover:bg-muted/50'
+          }`}
+        >
+          <div className={`text-2xl font-bold tabular-nums ${orphanFilter ? 'text-orange-700' : (stats?.orphanSubcategory ?? 0) > 0 ? 'text-orange-600' : 'text-muted-foreground'}`}>
+            {stats ? (stats.orphanSubcategory ?? 0).toLocaleString() : <span className="text-muted-foreground text-lg">…</span>}
+          </div>
+          <div className={`text-xs mt-0.5 font-medium flex items-center justify-center gap-1 ${orphanFilter ? 'text-orange-700' : (stats?.orphanSubcategory ?? 0) > 0 ? 'text-orange-600' : 'text-muted-foreground'}`}>
+            <AlertTriangle className="h-3 w-3" /> Ghost Subcategory
+            {orphanFilter && <span className="ml-1 text-[10px] bg-orange-200 text-orange-800 rounded px-1">filtered</span>}
           </div>
         </button>
       </div>
@@ -628,7 +654,7 @@ export default function Products() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-muted-foreground uppercase bg-muted/50 sticky top-0 z-10 backdrop-blur-sm border-b border-border">
                 <tr>
-                  {noSubcatFilter && (
+                  {(noSubcatFilter || orphanFilter) && (
                     <th className="px-4 py-3 font-medium w-10">
                       <Checkbox
                         checked={allOnPageSelected ? true : someOnPageSelected ? 'indeterminate' : false}
@@ -653,8 +679,8 @@ export default function Products() {
                     id={`product-${product.id}`}
                     className={`hover:bg-muted/30 transition-colors ${!product.enabled ? 'opacity-60' : ''} ${selectedIds.has(product.id) ? 'bg-amber-50/50' : ''}`}
                   >
-                    {/* Checkbox (only when no-subcat filter is active) */}
-                    {noSubcatFilter && (
+                    {/* Checkbox (when no-subcat or orphan filter is active) */}
+                    {(noSubcatFilter || orphanFilter) && (
                       <td className="px-4 py-3">
                         <Checkbox
                           checked={selectedIds.has(product.id)}
@@ -690,7 +716,16 @@ export default function Products() {
                     {/* Category */}
                     <td className="px-4 py-3 hidden md:table-cell">
                       <div className="text-sm font-medium">{product.categoryId.split(':')[1]?.trim() || product.categoryId}</div>
-                      {product.subcategory && <div className="text-xs text-muted-foreground">{product.subcategory}</div>}
+                      {product.subcategory && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs text-muted-foreground">{product.subcategory}</span>
+                          {orphanFilter && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1 py-0 rounded bg-orange-100 text-orange-700 border border-orange-200">
+                              <AlertTriangle className="h-2.5 w-2.5" /> Ghost
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex gap-1 mt-1.5">
                         {product.isBestSeller    && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-accent/20 text-accent-foreground border-transparent">Best Seller</Badge>}
                         {product.isDwarikaSpecial && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-transparent">Special</Badge>}

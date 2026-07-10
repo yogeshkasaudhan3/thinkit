@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, productsTable, categoriesTable } from "@workspace/db";
-import { eq, ilike, and, or, sql, asc, desc, isNull, inArray } from "drizzle-orm";
+import { db, productsTable, categoriesTable, subcategoryDefinitionsTable } from "@workspace/db";
+import { eq, ilike, and, or, sql, asc, desc, isNull, isNotNull, inArray } from "drizzle-orm";
 import { utils, write } from "xlsx";
 import { requireAdmin } from "../../middleware/requireAdmin";
 import {
@@ -29,17 +29,24 @@ export function normalizeSubcategory(raw: string | null | undefined): string | n
 
 // ── Shared WHERE clause builder ─────────────────────────────────────────────
 
-function buildConditions(query: Record<string, unknown>, includeInStock = true, includeNoSubcategory = true) {
+function buildConditions(
+  query: Record<string, unknown>,
+  includeInStock = true,
+  includeNoSubcategory = true,
+  includeOrphanSubcategory = true,
+) {
   const q             = typeof query.q             === "string" ? query.q             : undefined;
   const category      = typeof query.category      === "string" ? query.category      : undefined;
   const subcategory   = typeof query.subcategory   === "string" ? query.subcategory   : undefined;
   const inStockRaw    = query.inStock;
   const enabledRaw    = query.enabled;
   const noSubcatRaw   = query.noSubcategory;
+  const orphanRaw     = query.subcategoryOrphan;
 
-  const inStock      = inStockRaw  === "true" ? true : inStockRaw  === "false" ? false : undefined;
-  const enabled      = enabledRaw  === "true" ? true : enabledRaw  === "false" ? false : undefined;
-  const noSubcategory = includeNoSubcategory && noSubcatRaw === "true";
+  const inStock        = inStockRaw === "true" ? true : inStockRaw === "false" ? false : undefined;
+  const enabled        = enabledRaw === "true" ? true : enabledRaw === "false" ? false : undefined;
+  const noSubcategory  = includeNoSubcategory       && noSubcatRaw === "true";
+  const orphanSubcat   = includeOrphanSubcategory   && orphanRaw   === "true";
 
   const conds = [];
   if (q)    conds.push(or(
@@ -50,6 +57,13 @@ function buildConditions(query: Record<string, unknown>, includeInStock = true, 
   if (category)      conds.push(eq(productsTable.categoryId, category));
   if (subcategory)   conds.push(eq(productsTable.subcategory, subcategory));
   if (noSubcategory) conds.push(isNull(productsTable.subcategory));
+  if (orphanSubcat) {
+    // Products that have a subcategory value but it doesn't match any master definition
+    conds.push(isNotNull(productsTable.subcategory));
+    conds.push(
+      sql`${productsTable.subcategory} NOT IN (SELECT name FROM ${subcategoryDefinitionsTable})`,
+    );
+  }
   if (includeInStock && typeof inStock === "boolean") conds.push(eq(productsTable.inStock, inStock));
   if (typeof enabled === "boolean")                   conds.push(eq(productsTable.enabled, enabled));
 
@@ -114,27 +128,37 @@ router.get("/admin/products/export", requireAdmin, async (_req, res): Promise<vo
 // Ignores the inStock and noSubcategory query params so both buckets are
 // always returned regardless of which filter is active.
 router.get("/admin/products/stats", requireAdmin, async (req, res): Promise<void> => {
-  // Build conditions WITHOUT inStock and WITHOUT noSubcategory so we always
-  // get unfiltered counts for both dimensions.
-  const baseConds   = buildConditions(req.query as Record<string, unknown>, /* includeInStock */ false, /* includeNoSubcategory */ false);
-  const baseWhere   = baseConds.length ? and(...baseConds) : undefined;
-  const inWhere     = baseConds.length ? and(...baseConds, eq(productsTable.inStock, true))  : eq(productsTable.inStock, true);
-  const outWhere    = baseConds.length ? and(...baseConds, eq(productsTable.inStock, false)) : eq(productsTable.inStock, false);
-  const noSubWhere  = baseConds.length ? and(...baseConds, isNull(productsTable.subcategory)) : isNull(productsTable.subcategory);
+  // Build conditions WITHOUT inStock, noSubcategory, and orphanSubcategory so we always
+  // get unfiltered counts for all dimensions.
+  const baseConds = buildConditions(
+    req.query as Record<string, unknown>,
+    /* includeInStock */          false,
+    /* includeNoSubcategory */    false,
+    /* includeOrphanSubcategory */false,
+  );
+  const baseWhere    = baseConds.length ? and(...baseConds) : undefined;
+  const inWhere      = baseConds.length ? and(...baseConds, eq(productsTable.inStock, true))   : eq(productsTable.inStock, true);
+  const outWhere     = baseConds.length ? and(...baseConds, eq(productsTable.inStock, false))  : eq(productsTable.inStock, false);
+  const noSubWhere   = baseConds.length ? and(...baseConds, isNull(productsTable.subcategory)) : isNull(productsTable.subcategory);
+  // Orphan: has a subcategory but it's not in the master list
+  const orphanCond   = sql`${productsTable.subcategory} IS NOT NULL AND ${productsTable.subcategory} NOT IN (SELECT name FROM ${subcategoryDefinitionsTable})`;
+  const orphanWhere  = baseConds.length ? and(...baseConds, orphanCond) : orphanCond;
 
   const [
     [{ total }],
     [{ inStockCnt }],
     [{ outStockCnt }],
     [{ noSubCnt }],
+    [{ orphanCnt }],
   ] = await Promise.all([
-    db.select({ total:      sql<number>`count(*)::int` }).from(productsTable).where(baseWhere),
-    db.select({ inStockCnt: sql<number>`count(*)::int` }).from(productsTable).where(inWhere),
-    db.select({ outStockCnt:sql<number>`count(*)::int` }).from(productsTable).where(outWhere),
-    db.select({ noSubCnt:   sql<number>`count(*)::int` }).from(productsTable).where(noSubWhere),
+    db.select({ total:       sql<number>`count(*)::int` }).from(productsTable).where(baseWhere),
+    db.select({ inStockCnt:  sql<number>`count(*)::int` }).from(productsTable).where(inWhere),
+    db.select({ outStockCnt: sql<number>`count(*)::int` }).from(productsTable).where(outWhere),
+    db.select({ noSubCnt:    sql<number>`count(*)::int` }).from(productsTable).where(noSubWhere),
+    db.select({ orphanCnt:   sql<number>`count(*)::int` }).from(productsTable).where(orphanWhere),
   ]);
 
-  res.json({ total, inStock: inStockCnt, outOfStock: outStockCnt, noSubcategory: noSubCnt });
+  res.json({ total, inStock: inStockCnt, outOfStock: outStockCnt, noSubcategory: noSubCnt, orphanSubcategory: orphanCnt });
 });
 
 // ── GET /admin/products ─────────────────────────────────────────────────────
