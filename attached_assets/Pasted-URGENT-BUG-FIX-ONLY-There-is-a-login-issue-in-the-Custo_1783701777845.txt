@@ -1,0 +1,59 @@
+URGENT BUG FIX ONLY
+
+There is a login issue in the Customer App.
+
+Problem:
+When an existing customer enters a valid mobile number and password, the app shows:
+
+"Network error. Please try again."
+
+The user is unable to log in.
+
+IMPORTANT:
+I do NOT want any UI redesign, refactoring, optimization, styling changes, or feature changes.
+
+Only fix the login issue.
+
+Please investigate the complete login flow and identify the exact root cause.
+
+Check all of the following:
+
+1. Is the login API request being sent correctly?
+2. Is the API endpoint correct?
+3. Is the backend server receiving the request?
+4. Check server logs for any errors or exceptions.
+5. Is the authentication controller returning an error?
+6. Is the database query working correctly?
+7. Is the password verification working?
+8. Is JWT/session/token generation failing?
+9. Is CORS causing the request to fail?
+10. Is the frontend incorrectly treating a backend error as a network error?
+11. Check browser DevTools Network tab.
+12. Check the actual HTTP status code (200, 400, 401, 404, 500, etc.).
+13. Log the complete request and response for debugging.
+14. If there is an exception, identify the exact file and line causing it.
+
+After identifying the root cause:
+
+• Fix ONLY the login bug.
+• Do not modify any other functionality.
+• Do not change UI.
+• Do not change layouts.
+• Do not change authentication flow unless absolutely necessary.
+• Do not refactor unrelated code.
+• Do not introduce any new features.
+
+After fixing, verify:
+
+✓ Existing customer can log in successfully.
+✓ Invalid password shows the correct validation message.
+✓ Invalid mobile number shows the correct validation message.
+✓ No "Network error" is shown unless there is an actual network failure.
+✓ No regressions anywhere else in the app.
+
+Before finishing, explain:
+
+1. What was the exact root cause?
+2. Which file(s) were modified?
+3. Why the issue happened.
+4. Why the fix will not affect any other functionality.
