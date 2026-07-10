@@ -1,0 +1,119 @@
+🚨 CRITICAL BUG FIX ONLY
+
+There is a React runtime error that appears after placing an order.
+
+The order is created successfully, but immediately after navigating to the Orders screen, React shows the following runtime error:
+
+"There was an error during concurrent rendering but React was able to recover by instead synchronously rendering the entire root."
+
+This is NOT just a Vite overlay issue.
+
+I want the actual root cause fixed.
+
+--------------------------------------------------
+Steps to Reproduce
+--------------------------------------------------
+
+1. Login as a customer.
+2. Add products to the cart.
+3. Place an order.
+4. Navigate to My Orders.
+5. React runtime error appears.
+
+--------------------------------------------------
+Required Investigation
+--------------------------------------------------
+
+Before making ANY code changes:
+
+• Open the browser console.
+• Capture the complete React stack trace.
+• Identify the exact component causing the exception.
+• Identify the exact file and line number.
+• Explain the real root cause.
+
+Check all of the following:
+
+1. Browser console errors.
+2. React stack trace.
+3. Component stack.
+4. Unhandled exceptions.
+5. Promise rejections.
+6. Order API response.
+7. Order object returned from backend.
+8. React Query cache.
+9. State updates after placing an order.
+10. useEffect dependencies.
+11. Undefined/null values.
+12. Date formatting.
+13. Array mapping.
+14. Missing optional chaining.
+15. Rendering before data exists.
+16. Concurrent rendering compatibility.
+17. Timeline/status component.
+18. Order Card component.
+19. Order Details component.
+20. Navigation after order placement.
+
+--------------------------------------------------
+IMPORTANT
+--------------------------------------------------
+
+Fix ONLY the root cause.
+
+DO NOT:
+
+❌ Change any UI.
+❌ Change any styling.
+❌ Change any layout.
+❌ Change any API.
+❌ Change any database schema.
+❌ Change authentication.
+❌ Change cart logic.
+❌ Change checkout flow.
+❌ Change order flow.
+❌ Change image loading.
+❌ Change category logic.
+❌ Change performance optimizations.
+❌ Refactor unrelated code.
+❌ Disable React Concurrent Rendering.
+❌ Disable the Vite overlay.
+❌ Hide or suppress the error.
+
+⚠️ VERY IMPORTANT:
+
+No other changes should be made anywhere in the application.
+
+Only modify the minimum amount of code required to fix this specific runtime error.
+
+Do not improve, optimize, clean up, or rewrite any unrelated code.
+
+Do not introduce any regressions.
+
+--------------------------------------------------
+Verification
+--------------------------------------------------
+
+After fixing:
+
+✓ Place a new order successfully.
+✓ Orders page opens without runtime errors.
+✓ Refresh Orders page.
+✓ Open previous orders.
+✓ Cancel order (if supported).
+✓ Verify browser console has zero React runtime errors.
+✓ Verify no regression anywhere else in the application.
+
+--------------------------------------------------
+Final Report
+--------------------------------------------------
+
+After the fix, provide:
+
+1. The exact root cause.
+2. The exact file(s) modified.
+3. The exact line(s) modified.
+4. Why the error occurred.
+5. Why your fix is correct.
+6. Why no other part of the application was affected.
+7. Confirm that NO unrelated files or functionality were modified.
