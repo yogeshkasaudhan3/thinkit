@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Upload, FileText, CheckCircle, AlertTriangle,
-  Loader2, X, ArrowLeft, Package, Tag,
+  Loader2, X, ArrowLeft, Package, Tag, Download,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -92,8 +92,9 @@ export default function BulkImport() {
   const [fileBase64, setFileBase64] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const [previewing, setPreviewing] = useState(false);
-  const [importing, setImporting]   = useState(false);
+  const [previewing, setPreviewing]   = useState(false);
+  const [importing, setImporting]     = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const [previewData, setPreviewData] = useState<PreviewResult | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -145,6 +146,36 @@ export default function BulkImport() {
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) loadFile(file);
+  };
+
+  // ── Export ────────────────────────────────────────────────────────────────
+
+  const handleExport = async () => {
+    setDownloading(true);
+    try {
+      const r = await fetch('/api/admin/products/export', { credentials: 'include' });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error((d as Record<string, string>).error ?? `HTTP ${r.status}`);
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'thinkit-products-export.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      toast({
+        title: 'Export failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // ── Preview ────────────────────────────────────────────────────────────────
@@ -292,6 +323,17 @@ export default function BulkImport() {
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analysing file…</>
                   : <><FileText className="mr-2 h-4 w-4" />Preview Products</>}
               </Button>
+
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={downloading}
+                className="w-full"
+              >
+                {downloading
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Preparing export…</>
+                  : <><Download className="mr-2 h-4 w-4" />Download for bulk edit</>}
+              </Button>
             </CardContent>
           </Card>
 
@@ -313,7 +355,7 @@ export default function BulkImport() {
                   {[
                     { from: 'Item name*',             to: 'Product Name',      note: 'Used to match existing products' },
                     { from: 'Item code',               to: 'Barcode / SKU',    note: 'Match priority over name' },
-                    { from: 'Company',                 to: 'Brand',            note: 'Blank if column absent' },
+                    { from: 'Company',                 to: 'Brand',            note: 'Included in export to preserve brand on re-import' },
                     { from: 'Category',                to: 'Category',         note: 'Auto-created if not found' },
                     { from: 'Subcategory',             to: 'Subcategory',      note: 'Optional — skipped if absent' },
                     { from: 'Default Mrp',             to: 'MRP',              note: '' },

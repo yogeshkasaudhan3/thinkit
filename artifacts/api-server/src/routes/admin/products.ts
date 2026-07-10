@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, productsTable } from "@workspace/db";
+import { db, productsTable, categoriesTable } from "@workspace/db";
 import { eq, ilike, and, or, sql, asc, desc, isNull, inArray } from "drizzle-orm";
+import { utils, write } from "xlsx";
 import { requireAdmin } from "../../middleware/requireAdmin";
 import {
   CreateAdminProductBody,
@@ -54,6 +55,59 @@ function buildConditions(query: Record<string, unknown>, includeInStock = true, 
 
   return conds;
 }
+
+// ── GET /admin/products/export ──────────────────────────────────────────────
+// Downloads all products as a Vyapar-compatible XLSX file.
+// Columns match the Vyapar import format so the file can be edited and
+// re-imported without any column renaming.
+router.get("/admin/products/export", requireAdmin, async (_req, res): Promise<void> => {
+  // Fetch all products (no pagination) sorted by name
+  const [products, categories] = await Promise.all([
+    db.select().from(productsTable).orderBy(asc(productsTable.name)),
+    db.select({ id: categoriesTable.id, name: categoriesTable.name }).from(categoriesTable),
+  ]);
+
+  // Build id → name map (categoryId on products is text, id on categories is int)
+  const catMap = new Map<string, string>(
+    categories.map((c) => [String(c.id), c.name]),
+  );
+
+  // Header row — mirrors Vyapar export column names exactly so the file
+  // is directly re-importable via the existing Vyapar import flow.
+  // "Company" (brand) is included so a re-import never overwrites it with blank.
+  const header = [
+    "Item name*",
+    "Item code",
+    "Company",
+    "Category",
+    "Subcategory",
+    "Sale price",
+    "Default Mrp",
+    "Current stock quantity",
+  ];
+
+  const rows = products.map((p) => [
+    p.name,
+    p.sku ?? "",
+    p.brand ?? "",
+    catMap.get(p.categoryId) ?? p.categoryId,
+    p.subcategory ?? "",
+    p.price,
+    p.mrp,
+    p.stockQty,
+  ]);
+
+  const ws = utils.aoa_to_sheet([header, ...rows]);
+  const wb = utils.book_new();
+  utils.book_append_sheet(wb, ws, "Products");
+
+  const buf = write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="thinkit-products-export.xlsx"`);
+  res.setHeader("Content-Length", buf.length);
+  res.end(buf);
+});
 
 // ── GET /admin/products/stats ───────────────────────────────────────────────
 // Returns total / inStock / outOfStock / noSubcategory counts.
