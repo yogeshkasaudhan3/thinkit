@@ -35,7 +35,6 @@ interface SubcategoryInfo {
 }
 
 const ALL_ID = 0;
-const ALL_ENTRY: SubcategoryInfo = { id: ALL_ID, name: 'All', imageUrl: null };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -73,10 +72,7 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
 
   useEffect(() => { setImgErr(false); }, [sub.imageUrl]);
 
-  const isAll = sub.id === ALL_ID;
-  const initials = isAll
-    ? '★'
-    : sub.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const initials = sub.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
   return (
     <div
@@ -107,7 +103,7 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
-        <span style={{ fontSize: isAll ? 18 : 15, fontWeight: 700, color: '#374151', userSelect: 'none' }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#374151', userSelect: 'none' }}>
           {initials}
         </span>
       )}
@@ -186,7 +182,8 @@ export default function SubcategoryPage() {
   const prevCategoryIdRef = useRef<string | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Reset to "All" whenever the user navigates to a different category
+  // Reset to unselected (ALL_ID sentinel) whenever the user navigates to a
+  // different category so the auto-select below fires for the new list.
   useEffect(() => {
     if (prevCategoryIdRef.current !== categoryId) {
       prevCategoryIdRef.current = categoryId;
@@ -203,11 +200,17 @@ export default function SubcategoryPage() {
     enabled: !!categoryId,
   });
 
+  // Auto-select the first subcategory once the list loads (or when the
+  // category changes and the new list arrives).
+  useEffect(() => {
+    if (subcategories.length > 0) {
+      const valid = subcategories.some((s) => s.id === activeId);
+      if (!valid) setActiveId(subcategories[0].id);
+    }
+  }, [subcategories]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Derive the active subcategory name for server-side filtering.
-  // null = "All" (no subcategory filter).
-  const activeSubName = activeId === ALL_ID
-    ? null
-    : (subcategories.find((s) => s.id === activeId)?.name ?? null);
+  const activeSubName = subcategories.find((s) => s.id === activeId)?.name ?? null;
 
   const { products, loading, loadingMore, hasMore, total, loadMore } =
     useCategoryProducts(categoryId, activeSubName);
@@ -227,10 +230,7 @@ export default function SubcategoryPage() {
     return () => observer.disconnect();
   }, [loadMore]);
 
-  const sidebarItems: SubcategoryInfo[] = [ALL_ENTRY, ...subcategories];
-  const activeName = activeId === ALL_ID
-    ? 'All Products'
-    : (subcategories.find((s) => s.id === activeId)?.name ?? 'All Products');
+  const activeName = subcategories.find((s) => s.id === activeId)?.name ?? '';
   const title = category?.name ?? '';
 
   return (
@@ -267,14 +267,16 @@ export default function SubcategoryPage() {
             scrollbarWidth: 'none',
           }}
         >
-          {sidebarItems.map((sub) => (
-            <SidebarItem
-              key={sub.id}
-              sub={sub}
-              active={activeId === sub.id}
-              onClick={() => setActiveId(sub.id)}
-            />
-          ))}
+          <div style={{ paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
+            {subcategories.map((sub) => (
+              <SidebarItem
+                key={sub.id}
+                sub={sub}
+                active={activeId === sub.id}
+                onClick={() => setActiveId(sub.id)}
+              />
+            ))}
+          </div>
         </aside>
 
         {/* Right product area */}
@@ -342,9 +344,7 @@ export default function SubcategoryPage() {
               <div className="flex flex-col items-center justify-center h-48 gap-2 text-gray-400">
                 <span className="text-3xl">📦</span>
                 <span className="text-sm text-center px-4">
-                  {activeId !== ALL_ID
-                    ? 'No products in this subcategory yet.'
-                    : 'No products found in this category.'}
+                  No products in this subcategory yet.
                 </span>
               </div>
             )}
