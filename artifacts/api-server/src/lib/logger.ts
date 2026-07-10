@@ -21,6 +21,13 @@ export const logger = pino({
     "*.currentPassword",
     "*.newPassword",
     "*.confirmPassword",
+    // Large binary fields — inventory-sync endpoints accept base64-encoded
+    // XLSX/CSV files up to 15 MB. Redacting them prevents megabytes of binary
+    // data from appearing in logs if req.body is ever logged accidentally.
+    "body.xlsxBase64",
+    "body.csvBase64",
+    "*.xlsxBase64",
+    "*.csvBase64",
   ],
   ...(isProduction
     ? {}
