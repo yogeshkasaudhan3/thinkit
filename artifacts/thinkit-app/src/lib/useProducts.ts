@@ -13,6 +13,7 @@
  */
 import { useState, useEffect } from 'react';
 import type { Product } from './mockData';
+import { invalidateCategoryProductsCache } from './useCategoryProducts';
 
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
 const CACHE_LIMIT = 100;
@@ -62,6 +63,9 @@ function ensureLoaded() {
 export function invalidateProductsCache() {
   loadedAt = null;
   if (loadState === 'done') loadState = 'idle';
+  // Also clear the paginated category cache so admin product changes are
+  // reflected immediately on the next category page visit.
+  invalidateCategoryProductsCache();
 }
 
 export interface UseProductsResult {

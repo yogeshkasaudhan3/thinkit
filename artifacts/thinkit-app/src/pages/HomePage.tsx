@@ -6,7 +6,7 @@
  * ProductCard is memoized to prevent re-renders when only cart qty changes for
  * other products.
  */
-import { useEffect, useState, useCallback, memo } from 'react';
+import { useEffect, useState, useCallback, memo, useLayoutEffect, useRef } from 'react';
 import { useLocation, Link } from 'wouter';
 import { motion } from 'framer-motion';
 import useEmblaCarousel from 'embla-carousel-react';
@@ -65,6 +65,9 @@ export const ProductCard = memo(function ProductCard({
   const [fullLoaded, setFullLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
+  const fullImgRef = useRef<HTMLImageElement>(null);
+  const lqipImgRef = useRef<HTMLImageElement>(null);
+
   const cartItem = cart.find(c => c.product.id === product.id);
   const qty = cartItem ? cartItem.qty : 0;
 
@@ -74,11 +77,35 @@ export const ProductCard = memo(function ProductCard({
   // 20px LQIP loads in <100 ms; shown blurred until full image is ready
   const lqipSrc = cloudinaryOpt(product.imageUrl, 20);
 
-  // Reset state whenever the image source changes (e.g. category switch)
-  useEffect(() => {
+  // Reset + cache-hit check in a single useLayoutEffect so all setState calls
+  // are batched into one commit before paint.
+  //
+  // Why useLayoutEffect instead of useEffect:
+  //   - Runs synchronously after DOM mutation, before the browser paints.
+  //   - setState here causes a synchronous re-render in the same commit, so
+  //     the user never sees the intermediate "loading" state.
+  //
+  // Why img.complete:
+  //   - When an image is in the browser's memory cache, the browser marks
+  //     img.complete = true and naturalWidth > 0 synchronously as soon as the
+  //     <img> element is added to the DOM (before onLoad can even fire).
+  //   - Checking this here lets us skip the skeleton + fade-in entirely for
+  //     cached images, making re-navigation feel instant.
+  useLayoutEffect(() => {
+    // Reset first (stale src → fresh loading state)
     setLqipLoaded(false);
     setFullLoaded(false);
     setImgError(false);
+
+    // Immediately promote to loaded if the browser already has it in cache
+    if (fullImgRef.current?.complete && fullImgRef.current.naturalWidth > 0) {
+      setFullLoaded(true);
+      setLqipLoaded(true);
+      return;
+    }
+    if (lqipImgRef.current?.complete && lqipImgRef.current.naturalWidth > 0) {
+      setLqipLoaded(true);
+    }
   }, [fullSrc]);
 
   const handleAdd = useCallback((e: React.MouseEvent) => {
@@ -115,6 +142,7 @@ export const ProductCard = memo(function ProductCard({
                 Skipped for priority cards: their full image is already eager-loaded. */}
             {lqipSrc && !priority && (
               <img
+                ref={lqipImgRef}
                 src={lqipSrc}
                 alt=""
                 aria-hidden="true"
@@ -137,6 +165,7 @@ export const ProductCard = memo(function ProductCard({
 
             {/* Full image — eager + high priority for the first visible row */}
             <img
+              ref={fullImgRef}
               src={fullSrc}
               alt={product.name}
               loading={priority ? 'eager' : 'lazy'}
