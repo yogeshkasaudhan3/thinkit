@@ -19,8 +19,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Loader2, Save, Trash2, Image as ImageIcon, Upload, X } from 'lucide-react';
-import { useUpload } from '@workspace/object-storage-web';
+import { ArrowLeft, Loader2, Save, Trash2, Image as ImageIcon, Upload, X, Sparkles } from 'lucide-react';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { adminFetch } from '@/lib/admin-fetch';
@@ -119,7 +119,7 @@ export default function ProductForm() {
   const { mutate: deleteProduct, isPending: isDeleting } = useDeleteAdminProduct();
   const isSaving = isCreating || isUpdating;
 
-  const { uploadFile, isUploading, error: uploadError, progress: uploadProgress } = useUpload();
+  const { uploadImage, isUploading, error: uploadError, progress: uploadProgress, lastResult: uploadResult } = useImageUpload();
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -335,19 +335,25 @@ export default function ProductForm() {
                     const file = e.target.files?.[0];
                     e.target.value = '';
                     if (!file) return;
-                    const result = await uploadFile(file);
+                    const result = await uploadImage(file);
                     if (result) {
-                      form.setValue('imageUrl', `/api/storage${result.objectPath}`, { shouldValidate: true });
+                      form.setValue('imageUrl', result.imageUrl, { shouldValidate: true });
                     }
                   }}
                 />
 
                 {uploadError && <p className="text-sm text-destructive">{uploadError.message}</p>}
-                {imageUrlValue && !isUploading && (
+                {uploadResult && !isUploading && (
+                  <p className="text-xs text-emerald-600 flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Optimised: {Math.round(uploadResult.originalSize / 1024)} KB → {Math.round(uploadResult.optimizedSize / 1024)} KB (WebP 600×600)
+                  </p>
+                )}
+                {imageUrlValue && !isUploading && !uploadResult && (
                   <p className="text-xs text-muted-foreground font-mono truncate max-w-xs">{imageUrlValue}</p>
                 )}
                 {!imageUrlValue && !isUploading && (
-                  <p className="text-xs text-muted-foreground">Products without images will show a placeholder icon.</p>
+                  <p className="text-xs text-muted-foreground">Upload any JPEG/PNG — automatically resized to 600×600 WebP.</p>
                 )}
               </div>
             </div>

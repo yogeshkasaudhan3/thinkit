@@ -1,44 +1,53 @@
 ---
 name: Image optimization architecture
-description: How product/category images are optimized — Sharp proxy pipeline for GCS, Cloudinary transforms, imgUtils.ts, loading priorities.
+description: Server-side Sharp pipeline for product image upload and bulk optimization — covers both the proxy (on-the-fly) and the upload (at-rest) paths.
 ---
 
 ## Two optimization paths
 
-**Cloudinary URLs** (`res.cloudinary.com`):
-- `cloudinaryOpt(url, width)` injects `f_auto,q_auto,w_N` after `/upload/`
-- Guard: skip if `/upload/<transforms>/` already present (regex `/\/upload\/[a-z0-9_,]+\//`)
+### 1. Upload path (at-rest optimization)
+- Route: `POST /api/admin/images/upload` (multipart, requireAdmin)
+- multer memoryStorage, 15 MB limit, MIME whitelist
+- Sharp: resize 600×600 `fit:inside, withoutEnlargement`, WebP quality 85
+- Sharp strips metadata by default (no `.withMetadata()` call = no metadata in output)
+- Uploads optimized buffer to GCS via presigned PUT URL
+- Returns `{ imageUrl, originalSize, optimizedSize }`
+- Admin panel: `useImageUpload` hook (FormData + credentials:include)
 
-**GCS proxy URLs** (`/api/storage/objects/...` or `/api/storage/public-objects/...`):
-- `cloudinaryOpt(url, width)` appends `?w=N` to the URL
-- API server's storage route reads `?w`, pipes GCS stream through Sharp → WebP at quality 82
-- Uses Node `stream.pipeline()` (NOT `.pipe()`) so all three streams (GCS, Sharp, res) are torn down on error or client disconnect
-- `ERR_STREAM_PREMATURE_CLOSE` (client disconnect) is silently ignored
+### 2. Proxy path (on-the-fly)
+- Route: `GET /api/storage/objects/*?w=N`
+- Sharp: resize to width N, WebP q82, stream.pipeline() for cleanup
+- 1-year immutable Cache-Control; Content-Type: image/webp
+- `cloudinaryOpt(url, width)` in imgUtils.ts appends `?w=N` to GCS URLs
 
-## Cache headers
-All storage responses: `public, max-age=31536000, immutable`
-Optimized responses add `Content-Type: image/webp` (no Content-Length since Sharp changes size)
+### 3. Bulk optimize
+- Route: `POST /api/admin/products/bulk-optimize` (requireAdmin)
+- **ID-cursor pagination**: body `{ afterId: number }` → processes 100 products with id > afterId
+- Returns `{ batchSize, lastProcessedId, remaining, processed, skipped, failed, done }`
+- Admin passes `lastProcessedId` as `afterId` in next "Continue" call
+- Skip condition: already WebP + ≤600px + ≤180KB (header-only Sharp metadata check)
+- Admin panel: cumulative totals tracked across multiple runs; "Continue (N left)" button
 
 ## Width values used per context
 | Context | Width |
 |---|---|
-| Category tile (2-col grid) | 112 |
-| Category tile (HomePage row) | 128 |
-| Banner carousel | 780 |
-| Product card | 400 |
-| Cart recommendations | 200 |
-| Product detail hero | 600 |
+| Upload (stored) | 600 max |
+| Proxy: product cards | 400 |
+| Proxy: product detail | 600 |
+| Proxy: banners | 780 |
+| Proxy: category tiles | 112–128 |
+| Proxy: cart recommendations | 200 |
 
 ## Loading priorities
 | Image | loading | fetchPriority |
 |---|---|---|
 | Banner first slide | eager | high |
 | Product detail hero | eager | high |
-| All other images | lazy | auto |
+| All others | lazy | auto |
 
 ## Sharp install
-`sharp` + `@types/sharp` added to `artifacts/api-server/package.json`
+`sharp` + `@types/sharp` + `multer` + `@types/multer` in `artifacts/api-server`
 
-**Why:** GCS proxy images don't go through any CDN that supports format negotiation. Adding `?w=N` as cache-busting key means the 1-year immutable cache is correct (different widths = different URLs).
+**Why cursor pagination:** After optimization, the new URL still matches `/api/storage/objects/`, so filtering by URL alone can't distinguish optimized from unoptimized. ID cursor guarantees forward progress independent of content.
 
-**How to apply:** Always call `cloudinaryOpt(url, width)` before rendering any `<img>` src. Pass the width appropriate for the rendered size (see table above). Never pass raw `imageUrl` directly to `<img src>`.
+**How to apply:** Always call `cloudinaryOpt(url, width)` before any `<img src>`. For new uploads, use `useImageUpload` hook (not the old `useUpload` presigned-URL flow).

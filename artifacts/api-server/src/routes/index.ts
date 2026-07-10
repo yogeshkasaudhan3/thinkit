@@ -9,6 +9,7 @@ import bannersRouter from "./banners";
 import categoriesRouter from "./categories";
 import settingsRouter from "./settings";
 import vyaparImportRouter from "./admin/vyapar-import";
+import imagesRouter from "./admin/images";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(settingsRouter);
 router.use(adminRouter);
 router.use(storageRouter);
 router.use(vyaparImportRouter);
+router.use(imagesRouter);
 
 export default router;
