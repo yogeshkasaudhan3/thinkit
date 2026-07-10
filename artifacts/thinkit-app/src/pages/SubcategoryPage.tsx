@@ -181,6 +181,7 @@ export default function SubcategoryPage() {
   const [activeId, setActiveId] = useState<number>(ALL_ID);
   const prevCategoryIdRef = useRef<string | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const productListRef = useRef<HTMLElement>(null);
 
   // Reset to unselected (ALL_ID sentinel) whenever the user navigates to a
   // different category so the auto-select below fires for the new list.
@@ -223,6 +224,13 @@ export default function SubcategoryPage() {
 
   // Preload first 6 above-the-fold images whenever the product list changes
   usePreloadImages(displayProducts, 6);
+
+  // Reset product list scroll to top whenever the active subcategory changes
+  useEffect(() => {
+    if (productListRef.current) {
+      productListRef.current.scrollTop = 0;
+    }
+  }, [activeId]);
 
   // IntersectionObserver fires loadMore when the sentinel enters the viewport
   useEffect(() => {
@@ -287,6 +295,7 @@ export default function SubcategoryPage() {
 
         {/* Right product area */}
         <main
+          ref={productListRef}
           style={{
             flex: 1,
             overflowY: 'auto',

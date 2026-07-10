@@ -1,0 +1,83 @@
+BUG FIX ONLY
+
+There is a UX bug on the Category > Subcategory page.
+
+--------------------------------------------------
+Problem
+--------------------------------------------------
+
+The product list on the right side keeps the previous scroll position when switching between subcategories.
+
+Example:
+
+1. Open any category.
+2. Select Subcategory A.
+3. Scroll down to Product 25 or lower.
+4. Now tap Subcategory B from the left sidebar.
+
+Current Behavior:
+The product list stays at the previous scroll position.
+The user lands somewhere in the middle of Subcategory B and has to manually scroll back to the top.
+
+Expected Behavior:
+Every time a different subcategory is selected, the product list must automatically scroll back to the very top before displaying the new products.
+
+--------------------------------------------------
+Required Behavior
+--------------------------------------------------
+
+Whenever the selected subcategory changes:
+
+• Reset the product list scroll position to the top.
+• The first products of the newly selected subcategory should always be visible.
+• This should happen instantly and smoothly.
+• The user should never inherit the previous subcategory's scroll position.
+
+--------------------------------------------------
+Implementation
+--------------------------------------------------
+
+If using:
+
+• FlatList → call scrollToOffset({ offset: 0, animated: false }) or equivalent when the selected subcategory changes.
+
+• ScrollView → call scrollTo({ top: 0, behavior: "auto" }) or equivalent.
+
+• Virtualized list → reset the scroll position using the appropriate list reference.
+
+Only reset the RIGHT product list.
+
+Do NOT reset or affect:
+- Left sidebar scroll position.
+- Selected subcategory.
+- Product loading logic.
+- Pagination.
+- Infinite scroll.
+- Image loading.
+- Product ordering.
+- Filters.
+- Search.
+- UI styling.
+
+--------------------------------------------------
+Verification
+--------------------------------------------------
+
+Test this flow:
+
+1. Open Category.
+2. Open Subcategory A.
+3. Scroll near the bottom.
+4. Tap Subcategory B.
+5. Product list should immediately start from Product 1.
+6. Repeat with multiple subcategories.
+
+Every newly selected subcategory must always open from the top.
+
+IMPORTANT:
+
+This is a BUG FIX ONLY.
+
+Do NOT modify any other functionality, UI, performance optimization, animations, or business logic.
+
+If the current implementation intentionally preserves scroll position, disable that behavior only for subcategory changes while keeping all other scrolling behavior unchanged.
