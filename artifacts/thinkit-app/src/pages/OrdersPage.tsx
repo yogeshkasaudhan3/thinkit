@@ -242,7 +242,7 @@ export default function OrdersPage() {
               </span>
             )}
             {activeTab === tab && (
-              <motion.div layoutId="orderTab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full" />
+              <motion.div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full" />
             )}
           </button>
         ))}
