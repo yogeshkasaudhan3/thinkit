@@ -13,3 +13,4 @@
 - [Subcategory definitions architecture](subcategory-definitions.md) — master subcategory_definitions table; tabs from master list not products; admin CRUD via /admin/subcategories/:id
 - [Performance optimization architecture](perf-optimization.md) — paginated API envelope, useCategoryProducts hook, slim useProducts, server-side search, DB indexes
 - [Image optimization architecture](image-optimization.md) — Sharp proxy pipeline (?w=N → WebP) for GCS images; cloudinaryOpt() for Cloudinary; loading priorities by context
+- [Image proxy always-Sharp rule](image-proxy-always-sharp.md) — uploads path always runs Sharp (default 1200px) even without ?w=; pino-http strips query strings from req.url in logs (split("?")[0])

@@ -160,14 +160,28 @@ async function serveImage(
     ? Math.min(MAX_RESIZE_WIDTH, Math.max(1, parseInt(String(wParam), 10)))
     : null;
 
-  // For knownImage paths, skip getMetadata() (saves ~800ms). For unknown
-  // file types, fetch metadata first to confirm the file is an image.
-  let shouldOptimize = requestedWidth !== null && !isNaN(requestedWidth);
-  if (shouldOptimize && !knownImage) {
-    const [metadata] = await file.getMetadata();
-    const contentType = (metadata.contentType as string) || "";
-    if (!contentType.startsWith("image/")) {
-      shouldOptimize = false;
+  // For knownImage paths (uploads/), always run Sharp — even when ?w= is
+  // absent. Original uploads can be multi-MB JPEGs; converting to WebP cuts
+  // them to ~30–80 KB regardless. Use 1200 px as the no-?w default: wide
+  // enough never to downscale a display-size image, but forces WebP encoding.
+  // For unknown-type paths, only optimize when ?w= is explicit and the file
+  // is confirmed to be an image via getMetadata().
+  const DEFAULT_KNOWN_WIDTH = 1200;
+  let effectiveWidth: number | null = requestedWidth;
+  let shouldOptimize: boolean;
+
+  if (knownImage) {
+    effectiveWidth = requestedWidth ?? DEFAULT_KNOWN_WIDTH;
+    shouldOptimize = !isNaN(effectiveWidth);
+  } else {
+    shouldOptimize = requestedWidth !== null && !isNaN(requestedWidth);
+    if (shouldOptimize) {
+      const [metadata] = await file.getMetadata();
+      const contentType = (metadata.contentType as string) || "";
+      if (!contentType.startsWith("image/")) {
+        shouldOptimize = false;
+        effectiveWidth = null;
+      }
     }
   }
 
@@ -176,7 +190,7 @@ async function serveImage(
   if (shouldOptimize) {
     const srcStream = file.createReadStream();
     const transform = sharp()
-      .resize(requestedWidth, null, {
+      .resize(effectiveWidth, null, {
         withoutEnlargement: true,
         fit: "inside",
       })
