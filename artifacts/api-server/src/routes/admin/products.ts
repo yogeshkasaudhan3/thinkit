@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, productsTable } from "@workspace/db";
-import { eq, ilike, and, or, sql, asc, desc } from "drizzle-orm";
+import { eq, ilike, and, or, sql, asc, desc, isNull, inArray } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/requireAdmin";
 import {
   CreateAdminProductBody,
@@ -28,15 +28,17 @@ export function normalizeSubcategory(raw: string | null | undefined): string | n
 
 // ── Shared WHERE clause builder ─────────────────────────────────────────────
 
-function buildConditions(query: Record<string, unknown>, includeInStock = true) {
-  const q           = typeof query.q           === "string" ? query.q           : undefined;
-  const category    = typeof query.category    === "string" ? query.category    : undefined;
-  const subcategory = typeof query.subcategory === "string" ? query.subcategory : undefined;
-  const inStockRaw  = query.inStock;
-  const enabledRaw  = query.enabled;
+function buildConditions(query: Record<string, unknown>, includeInStock = true, includeNoSubcategory = true) {
+  const q             = typeof query.q             === "string" ? query.q             : undefined;
+  const category      = typeof query.category      === "string" ? query.category      : undefined;
+  const subcategory   = typeof query.subcategory   === "string" ? query.subcategory   : undefined;
+  const inStockRaw    = query.inStock;
+  const enabledRaw    = query.enabled;
+  const noSubcatRaw   = query.noSubcategory;
 
-  const inStock = inStockRaw === "true" ? true : inStockRaw === "false" ? false : undefined;
-  const enabled = enabledRaw === "true" ? true : enabledRaw === "false" ? false : undefined;
+  const inStock      = inStockRaw  === "true" ? true : inStockRaw  === "false" ? false : undefined;
+  const enabled      = enabledRaw  === "true" ? true : enabledRaw  === "false" ? false : undefined;
+  const noSubcategory = includeNoSubcategory && noSubcatRaw === "true";
 
   const conds = [];
   if (q)    conds.push(or(
@@ -44,8 +46,9 @@ function buildConditions(query: Record<string, unknown>, includeInStock = true) 
     ilike(productsTable.brand, `%${q}%`),
     ilike(productsTable.sku,   `%${q}%`),
   ));
-  if (category)    conds.push(eq(productsTable.categoryId, category));
-  if (subcategory) conds.push(eq(productsTable.subcategory, subcategory));
+  if (category)      conds.push(eq(productsTable.categoryId, category));
+  if (subcategory)   conds.push(eq(productsTable.subcategory, subcategory));
+  if (noSubcategory) conds.push(isNull(productsTable.subcategory));
   if (includeInStock && typeof inStock === "boolean") conds.push(eq(productsTable.inStock, inStock));
   if (typeof enabled === "boolean")                   conds.push(eq(productsTable.enabled, enabled));
 
@@ -53,19 +56,31 @@ function buildConditions(query: Record<string, unknown>, includeInStock = true) 
 }
 
 // ── GET /admin/products/stats ───────────────────────────────────────────────
-// Returns total / inStock / outOfStock counts (ignores inStock query param so
-// we always get both in- and out-of-stock totals regardless of stock filter).
+// Returns total / inStock / outOfStock / noSubcategory counts.
+// Ignores the inStock and noSubcategory query params so both buckets are
+// always returned regardless of which filter is active.
 router.get("/admin/products/stats", requireAdmin, async (req, res): Promise<void> => {
-  const baseConds = buildConditions(req.query as Record<string, unknown>, /* includeInStock */ false);
-  const baseWhere = baseConds.length ? and(...baseConds) : undefined;
-  const inWhere   = baseConds.length ? and(...baseConds, eq(productsTable.inStock, true))  : eq(productsTable.inStock, true);
-  const outWhere  = baseConds.length ? and(...baseConds, eq(productsTable.inStock, false)) : eq(productsTable.inStock, false);
+  // Build conditions WITHOUT inStock and WITHOUT noSubcategory so we always
+  // get unfiltered counts for both dimensions.
+  const baseConds   = buildConditions(req.query as Record<string, unknown>, /* includeInStock */ false, /* includeNoSubcategory */ false);
+  const baseWhere   = baseConds.length ? and(...baseConds) : undefined;
+  const inWhere     = baseConds.length ? and(...baseConds, eq(productsTable.inStock, true))  : eq(productsTable.inStock, true);
+  const outWhere    = baseConds.length ? and(...baseConds, eq(productsTable.inStock, false)) : eq(productsTable.inStock, false);
+  const noSubWhere  = baseConds.length ? and(...baseConds, isNull(productsTable.subcategory)) : isNull(productsTable.subcategory);
 
-  const [{ total }]       = await db.select({ total:    sql<number>`count(*)::int` }).from(productsTable).where(baseWhere);
-  const [{ inStockCnt }]  = await db.select({ inStockCnt:  sql<number>`count(*)::int` }).from(productsTable).where(inWhere);
-  const [{ outStockCnt }] = await db.select({ outStockCnt: sql<number>`count(*)::int` }).from(productsTable).where(outWhere);
+  const [
+    [{ total }],
+    [{ inStockCnt }],
+    [{ outStockCnt }],
+    [{ noSubCnt }],
+  ] = await Promise.all([
+    db.select({ total:      sql<number>`count(*)::int` }).from(productsTable).where(baseWhere),
+    db.select({ inStockCnt: sql<number>`count(*)::int` }).from(productsTable).where(inWhere),
+    db.select({ outStockCnt:sql<number>`count(*)::int` }).from(productsTable).where(outWhere),
+    db.select({ noSubCnt:   sql<number>`count(*)::int` }).from(productsTable).where(noSubWhere),
+  ]);
 
-  res.json({ total, inStock: inStockCnt, outOfStock: outStockCnt });
+  res.json({ total, inStock: inStockCnt, outOfStock: outStockCnt, noSubcategory: noSubCnt });
 });
 
 // ── GET /admin/products ─────────────────────────────────────────────────────
@@ -99,6 +114,40 @@ router.get("/admin/products", requireAdmin, async (req, res): Promise<void> => {
     .offset(offset);
 
   res.json(products.map(serializeProduct));
+});
+
+// ── PATCH /admin/products/bulk-subcategory — must be before /:id ────────────
+// Assigns a subcategory to a list of product IDs in one shot.
+router.patch("/admin/products/bulk-subcategory", requireAdmin, async (req, res): Promise<void> => {
+  const body = req.body as Record<string, unknown>;
+
+  const ids = body.ids;
+  const subcategoryRaw = typeof body.subcategory === "string" ? body.subcategory : "";
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids must be a non-empty array" });
+    return;
+  }
+
+  const normalized = normalizeSubcategory(subcategoryRaw);
+  if (!normalized) {
+    res.status(400).json({ error: "subcategory is required and cannot be blank" });
+    return;
+  }
+
+  const numIds = (ids as unknown[]).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+  if (numIds.length === 0) {
+    res.status(400).json({ error: "No valid product IDs provided" });
+    return;
+  }
+
+  const updated = await db
+    .update(productsTable)
+    .set({ subcategory: normalized, updatedAt: new Date() })
+    .where(inArray(productsTable.id, numIds))
+    .returning({ id: productsTable.id });
+
+  res.json({ updated: updated.length });
 });
 
 // ── POST /admin/products/bulk — must be before /:id ─────────────────────────

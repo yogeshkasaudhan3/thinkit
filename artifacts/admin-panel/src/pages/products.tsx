@@ -4,7 +4,9 @@ import { Link, useLocation, useSearch } from 'wouter';
 import {
   Search, Plus, Upload, Loader2, Package, Pencil, MoreVertical,
   X, ChevronLeft, ChevronRight, Zap, TrendingDown, Sparkles, CheckCircle2, AlertCircle,
+  Tag, CheckSquare,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -79,7 +81,7 @@ function useSubcategoryOptions(categoryId: string) {
   });
 }
 
-interface ProductStats { total: number; inStock: number; outOfStock: number; }
+interface ProductStats { total: number; inStock: number; outOfStock: number; noSubcategory: number; }
 
 function useProductStats(qs: string) {
   return useQuery<ProductStats>({
@@ -210,11 +212,12 @@ export default function Products() {
   // ── Parse URL params (URL is the single source of truth for filter state) ──
   const urlParams = useMemo(() => new URLSearchParams(rawSearch), [rawSearch]);
 
-  const page          = Math.max(1, parseInt(urlParams.get('page')  || '1', 10) || 1);
-  const categoryFilter= urlParams.get('cat')   || '';
-  const subcatFilter  = urlParams.get('sub')   || '';
-  const stockFilter   = (urlParams.get('stock') as 'all' | 'in' | 'out') || 'all';
-  const sort          = urlParams.get('sort')  || 'name-asc';
+  const page           = Math.max(1, parseInt(urlParams.get('page')  || '1', 10) || 1);
+  const categoryFilter = urlParams.get('cat')   || '';
+  const subcatFilter   = urlParams.get('sub')   || '';
+  const stockFilter    = (urlParams.get('stock') as 'all' | 'in' | 'out') || 'all';
+  const noSubcatFilter = urlParams.get('nosub') === '1';
+  const sort           = urlParams.get('sort')  || 'name-asc';
 
   // Search term has its own local state for the input (debounce before hitting URL)
   const [searchTerm, setSearchTerm] = useState(() => urlParams.get('q') || '');
@@ -255,6 +258,13 @@ export default function Products() {
       setSearchTerm(qFromUrl);
     }
   }, [rawSearch]);
+
+  // ── Bulk selection state ──────────────────────────────────────────────────
+
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [bulkAssignOpen, setBulkAssignOpen]   = useState(false);
+  const [bulkAssignSubcat, setBulkAssignSubcat] = useState('');
+  const [bulkAssigning, setBulkAssigning]     = useState(false);
 
   // ── Bulk image optimization ───────────────────────────────────────────────
 
@@ -300,27 +310,32 @@ export default function Products() {
   const { data: subcatOptions = [] } = useSubcategoryOptions(categoryFilter);
 
   const baseFilters = {
-    q:           debouncedSearch  || undefined,
-    category:    categoryFilter   || undefined,
-    subcategory: subcatFilter     || undefined,
-    inStock:     stockFilter === 'in' ? true : stockFilter === 'out' ? false : undefined,
+    q:             debouncedSearch  || undefined,
+    category:      categoryFilter   || undefined,
+    subcategory:   subcatFilter     || undefined,
+    inStock:       stockFilter === 'in' ? true : stockFilter === 'out' ? false : undefined,
+    noSubcategory: noSubcatFilter   || undefined,
   };
 
-  // Stats never pass inStock so we always see both bucket counts
-  const statsQS = buildQS({ ...baseFilters, inStock: undefined });
+  // Stats strip both inStock and noSubcategory so we always get the full bucket counts
+  const statsQS = buildQS({ ...baseFilters, inStock: undefined, noSubcategory: undefined });
   const listQS  = buildQS({ ...baseFilters, sort, page, pageSize: PAGE_SIZE });
 
   const { data: stats }                        = useProductStats(statsQS);
   const { data: products = [], isLoading }     = useProductList(listQS);
 
-  // Pagination — totalFiltered respects the active stock filter for correct page count
+  // Clear selection whenever the product list query changes (filter/page changed)
+  useEffect(() => { setSelectedIds(new Set()); }, [listQS]);
+
+  // Pagination — totalFiltered respects the active filter for correct page count
   const totalFiltered = stats
-    ? stockFilter === 'in'  ? stats.inStock
+    ? noSubcatFilter        ? (stats.noSubcategory ?? 0)
+    : stockFilter === 'in'  ? stats.inStock
     : stockFilter === 'out' ? stats.outOfStock
     : stats.total
     : 0;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
-  const hasFilters = !!(debouncedSearch || categoryFilter || subcatFilter || stockFilter !== 'all');
+  const hasFilters = !!(debouncedSearch || categoryFilter || subcatFilter || stockFilter !== 'all' || noSubcatFilter);
 
   // ── Scroll position restoration ───────────────────────────────────────────
 
@@ -353,6 +368,8 @@ export default function Products() {
     updateUrl({ sub: v || undefined, page: undefined });
   const setStockFilter = (v: string) =>
     updateUrl({ stock: v === 'all' ? undefined : v, page: undefined });
+  const setNoSubcatFilter = (v: boolean) =>
+    updateUrl({ nosub: v ? '1' : undefined, page: undefined });
   const setSort = (v: string) =>
     updateUrl({ sort: v === 'name-asc' ? undefined : v, page: undefined });
   const setPage = (p: number) =>
@@ -361,6 +378,54 @@ export default function Products() {
   const clearFilters = () => {
     setSearchTerm('');
     setLocation('/products', { replace: true });
+  };
+
+  // ── Bulk selection helpers ────────────────────────────────────────────────
+
+  const allPageIds = products.map((p) => p.id);
+  const allOnPageSelected = allPageIds.length > 0 && allPageIds.every((id) => selectedIds.has(id));
+  const someOnPageSelected = !allOnPageSelected && allPageIds.some((id) => selectedIds.has(id));
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (allOnPageSelected) { allPageIds.forEach((id) => s.delete(id)); }
+      else                   { allPageIds.forEach((id) => s.add(id));    }
+      return s;
+    });
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id); else s.add(id);
+      return s;
+    });
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkAssignSubcat.trim() || selectedIds.size === 0) return;
+    setBulkAssigning(true);
+    try {
+      await adminFetch('/api/admin/products/bulk-subcategory', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds), subcategory: bulkAssignSubcat }),
+      });
+      toast({ title: `Subcategory assigned to ${selectedIds.size} product(s)` });
+      setSelectedIds(new Set());
+      setBulkAssignOpen(false);
+      setBulkAssignSubcat('');
+      invalidateAll();
+    } catch (err: unknown) {
+      toast({
+        title: 'Failed to assign subcategory',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setBulkAssigning(false);
+    }
   };
 
   // ── Navigation helpers ────────────────────────────────────────────────────
@@ -414,7 +479,7 @@ export default function Products() {
       </div>
 
       {/* ── Stats bar ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-card border border-border rounded-xl p-4 text-center shadow-sm">
           <div className="text-2xl font-bold text-foreground tabular-nums">
             {stats ? stats.total.toLocaleString() : <span className="text-muted-foreground text-lg">…</span>}
@@ -435,6 +500,24 @@ export default function Products() {
             <TrendingDown className="h-3 w-3" /> Out of Stock
           </div>
         </div>
+        {/* No Subcategory — clickable to toggle the filter */}
+        <button
+          type="button"
+          onClick={() => setNoSubcatFilter(!noSubcatFilter)}
+          className={`rounded-xl p-4 text-center shadow-sm border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            noSubcatFilter
+              ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-300'
+              : 'bg-card border-border hover:bg-muted/50'
+          }`}
+        >
+          <div className={`text-2xl font-bold tabular-nums ${noSubcatFilter ? 'text-amber-700' : 'text-amber-600'}`}>
+            {stats ? (stats.noSubcategory ?? 0).toLocaleString() : <span className="text-muted-foreground text-lg">…</span>}
+          </div>
+          <div className={`text-xs mt-0.5 font-medium flex items-center justify-center gap-1 ${noSubcatFilter ? 'text-amber-700' : 'text-muted-foreground'}`}>
+            <Tag className="h-3 w-3" /> No Subcategory
+            {noSubcatFilter && <span className="ml-1 text-[10px] bg-amber-200 text-amber-800 rounded px-1">filtered</span>}
+          </div>
+        </button>
       </div>
 
       {/* ── Filters ────────────────────────────────────────────────────────── */}
@@ -545,6 +628,15 @@ export default function Products() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-muted-foreground uppercase bg-muted/50 sticky top-0 z-10 backdrop-blur-sm border-b border-border">
                 <tr>
+                  {noSubcatFilter && (
+                    <th className="px-4 py-3 font-medium w-10">
+                      <Checkbox
+                        checked={allOnPageSelected ? true : someOnPageSelected ? 'indeterminate' : false}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all on page"
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 font-medium w-12"></th>
                   <th className="px-4 py-3 font-medium">Product Details</th>
                   <th className="px-4 py-3 font-medium hidden md:table-cell">Category</th>
@@ -559,8 +651,18 @@ export default function Products() {
                   <tr
                     key={product.id}
                     id={`product-${product.id}`}
-                    className={`hover:bg-muted/30 transition-colors ${!product.enabled ? 'opacity-60' : ''}`}
+                    className={`hover:bg-muted/30 transition-colors ${!product.enabled ? 'opacity-60' : ''} ${selectedIds.has(product.id) ? 'bg-amber-50/50' : ''}`}
                   >
+                    {/* Checkbox (only when no-subcat filter is active) */}
+                    {noSubcatFilter && (
+                      <td className="px-4 py-3">
+                        <Checkbox
+                          checked={selectedIds.has(product.id)}
+                          onCheckedChange={() => toggleSelect(product.id)}
+                          aria-label={`Select ${product.name}`}
+                        />
+                      </td>
+                    )}
                     {/* Thumbnail */}
                     <td className="px-4 py-3">
                       <div className="h-10 w-10 rounded-md bg-muted border border-border overflow-hidden flex items-center justify-center shrink-0">
@@ -674,6 +776,92 @@ export default function Products() {
           </div>
         )}
       </div>
+
+      {/* ── Bulk action bar (shown when products are selected) ─────────────── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card border border-border rounded-xl shadow-xl px-5 py-3">
+          <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm font-medium text-foreground">
+            {selectedIds.size} product{selectedIds.size !== 1 ? 's' : ''} selected
+          </span>
+          <Button
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={() => { setBulkAssignSubcat(''); setBulkAssignOpen(true); }}
+          >
+            <Tag className="mr-2 h-3.5 w-3.5" /> Assign Subcategory
+          </Button>
+          <Button
+            size="sm" variant="ghost"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* ── Bulk Assign Subcategory Dialog ─────────────────────────────────── */}
+      <Dialog open={bulkAssignOpen} onOpenChange={(v) => !v && setBulkAssignOpen(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="h-5 w-5 text-primary" /> Assign Subcategory
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Choose a subcategory to assign to{' '}
+              <strong>{selectedIds.size} selected product{selectedIds.size !== 1 ? 's' : ''}</strong>.
+            </p>
+            {/* If a category filter is active and there are known subcats, show a dropdown; otherwise free text */}
+            {categoryFilter && subcatOptions.length > 0 ? (
+              <div className="space-y-1.5">
+                <Label>Subcategory</Label>
+                <Select value={bulkAssignSubcat} onValueChange={setBulkAssignSubcat}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pick a subcategory…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subcatOptions.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>Subcategory name</Label>
+                <Input
+                  placeholder="e.g. Basmati Rice"
+                  value={bulkAssignSubcat}
+                  onChange={(e) => setBulkAssignSubcat(e.target.value)}
+                  autoFocus
+                />
+                {!categoryFilter && (
+                  <p className="text-xs text-muted-foreground">
+                    Tip: filter by category first to pick from existing subcategories.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkAssignOpen(false)} disabled={bulkAssigning}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkAssign}
+              disabled={bulkAssigning || !bulkAssignSubcat.trim()}
+              className="min-w-[110px]"
+            >
+              {bulkAssigning
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</>
+                : <><Tag className="mr-2 h-4 w-4" /> Assign</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Quick Edit Dialog ──────────────────────────────────────────────── */}
       <QuickEditDialog
