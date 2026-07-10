@@ -1,0 +1,68 @@
+Please make the following UI improvements to the Category > Subcategory page.
+
+There are two issues that need to be fixed.
+
+--------------------------------------------------
+1. Remove the "All" subcategory
+--------------------------------------------------
+
+Currently the left sidebar starts with an "All" option (star icon).
+
+I don't want this anymore.
+
+Requirements:
+
+• Completely remove the "All" item from the sidebar.
+• The first item should now be the first real subcategory.
+• Remove any related "All" filtering logic if it exists.
+• When the category page opens, automatically select the first available subcategory instead of "All".
+• The first subcategory should be highlighted by default.
+• Products of that first subcategory should be displayed immediately.
+
+--------------------------------------------------
+2. Last subcategory is getting cut off
+--------------------------------------------------
+
+Currently the last subcategory is partially hidden behind the bottom navigation bar.
+
+Requirements:
+
+• The last subcategory must always be fully visible.
+• Add enough bottom spacing to the sidebar list so the user can scroll until the last item is completely visible.
+• The last item should never overlap with the bottom navigation.
+• This should work on all screen sizes.
+• Do not use a fixed height that breaks on different devices.
+• Use proper bottom padding/content inset/safe area so scrolling feels natural.
+
+If the sidebar uses:
+
+- FlatList → use contentContainerStyle with sufficient paddingBottom.
+- ScrollView → use contentContainerStyle with paddingBottom.
+- Any custom scroll container → ensure equivalent bottom spacing.
+
+--------------------------------------------------
+Expected Result
+--------------------------------------------------
+
+Current:
+
+★ All
+Edible Oils
+Desi Ghee
+Whole Spices
+Ground Spices
+...
+(last item partially hidden)
+
+New:
+
+Edible Oils (selected by default)
+Desi Ghee
+Whole Spices
+Ground Spices
+...
+Last subcategory fully visible above the bottom navigation.
+
+Please keep the existing design, spacing, animations, and styling exactly the same.
+
+Only implement these two UI improvements.
