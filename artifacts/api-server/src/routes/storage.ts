@@ -119,9 +119,17 @@ router.get(
       const objectPath = `/objects/${wildcardPath}`;
       const objectFile =
         await objectStorageService.getObjectEntityFile(objectPath);
-      await serveImage(req, res, objectFile);
+      // All files under /uploads/ are image/webp (written by the Sharp upload
+      // pipeline), so we can skip getMetadata() on resize requests.
+      await serveImage(req, res, objectFile, /* knownImage */ true);
     } catch (error) {
       if (error instanceof ObjectNotFoundError) {
+        res.status(404).json({ error: "Object not found" });
+        return;
+      }
+      // GCS throws ApiError with numeric or string code 404 for missing objects
+      const code = (error as any)?.code;
+      if (code === 404 || code === "404") {
         res.status(404).json({ error: "Object not found" });
         return;
       }
@@ -134,29 +142,38 @@ router.get(
 /**
  * Shared helper — stream a GCS file to the response, optionally applying
  * Sharp resize + WebP conversion when ?w=N is present in the request.
+ *
+ * @param knownImage - Pass `true` when the caller guarantees the file is an
+ *   image (e.g. the private /uploads/ path where every file is WebP from the
+ *   upload pipeline). Skips the getMetadata() round-trip used to verify the
+ *   content type, saving ~800ms per request. Leave `false` (default) for
+ *   public-objects routes where the file type is unknown.
  */
 async function serveImage(
   req: Request,
   res: Response,
   file: Awaited<ReturnType<typeof objectStorageService.getObjectEntityFile>>,
+  knownImage = false,
 ): Promise<void> {
   const wParam = req.query.w;
   const requestedWidth = wParam
     ? Math.min(MAX_RESIZE_WIDTH, Math.max(1, parseInt(String(wParam), 10)))
     : null;
 
-  const [metadata] = await file.getMetadata();
-  const originalContentType =
-    (metadata.contentType as string) || "application/octet-stream";
-  const isImage = originalContentType.startsWith("image/");
-  const shouldOptimize = requestedWidth !== null && !isNaN(requestedWidth) && isImage;
+  // For knownImage paths, skip getMetadata() (saves ~800ms). For unknown
+  // file types, fetch metadata first to confirm the file is an image.
+  let shouldOptimize = requestedWidth !== null && !isNaN(requestedWidth);
+  if (shouldOptimize && !knownImage) {
+    const [metadata] = await file.getMetadata();
+    const contentType = (metadata.contentType as string) || "";
+    if (!contentType.startsWith("image/")) {
+      shouldOptimize = false;
+    }
+  }
 
   const cacheControl = `public, max-age=${ONE_YEAR}, immutable`;
 
   if (shouldOptimize) {
-    res.setHeader("Content-Type", "image/webp");
-    res.setHeader("Cache-Control", cacheControl);
-
     const srcStream = file.createReadStream();
     const transform = sharp()
       .resize(requestedWidth, null, {
@@ -168,18 +185,36 @@ async function serveImage(
     const onClientClose = () => srcStream.destroy();
     req.on("close", onClientClose);
 
-    srcStream.on("error", (err: NodeJS.ErrnoException) => {
+    // GCS 404 arrives as a stream error before any bytes are written to res.
+    // Detect it early so we can still send a proper HTTP 404 response.
+    let errorHandled = false;
+    srcStream.on("error", (err: Error) => {
+      if (errorHandled) return;
+      const gcsCode = (err as any).code;
+      if ((gcsCode === 404 || gcsCode === "404") && !res.headersSent) {
+        errorHandled = true;
+        req.off("close", onClientClose);
+        srcStream.destroy();
+        res.status(404).json({ error: "Object not found" });
+        return;
+      }
+      const nodeCode = (err as NodeJS.ErrnoException).code ?? "";
       const silent = ["ERR_STREAM_PREMATURE_CLOSE", "ERR_STREAM_UNABLE_TO_PIPE", "ECONNRESET"];
-      if (!silent.includes(err.code ?? "")) {
+      if (!silent.includes(nodeCode)) {
         req.log.error({ err }, "GCS source stream error");
       }
     });
 
+    res.setHeader("Content-Type", "image/webp");
+    res.setHeader("Cache-Control", cacheControl);
+
     try {
       pipeline(srcStream, transform, res, (err) => {
         req.off("close", onClientClose);
+        if (errorHandled) return;
+        const errCode = (err as NodeJS.ErrnoException | null)?.code ?? "";
         const silent = ["ERR_STREAM_PREMATURE_CLOSE", "ERR_STREAM_UNABLE_TO_PIPE", "ECONNRESET"];
-        if (err && !silent.includes((err as NodeJS.ErrnoException).code ?? "")) {
+        if (err && !silent.includes(errCode)) {
           req.log.error({ err }, "Sharp image pipeline error");
           res.destroy();
         }
