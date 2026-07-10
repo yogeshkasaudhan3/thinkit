@@ -24,6 +24,7 @@ import BottomNav from '../components/BottomNav';
 import { ProductCard } from './HomePage';
 import { useCategoryProducts } from '../lib/useCategoryProducts';
 import { useQuery } from '@tanstack/react-query';
+import { usePreloadImages } from '../lib/usePreloadImages';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -211,6 +212,9 @@ export default function SubcategoryPage() {
   const { products, loading, loadingMore, hasMore, total, loadMore } =
     useCategoryProducts(categoryId, activeSubName);
 
+  // Preload first 6 above-the-fold images whenever the product list changes
+  usePreloadImages(products, 6);
+
   // IntersectionObserver fires loadMore when the sentinel enters the viewport
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -323,8 +327,10 @@ export default function SubcategoryPage() {
             ) : products.length > 0 ? (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                  {products.map((product, index) => (
+                    // priority=true for the first 6 cards (3 rows × 2 cols) —
+                    // the typical above-the-fold count on a 390 px mobile screen
+                    <ProductCard key={product.id} product={product} priority={index < 6} />
                   ))}
                   {/* Skeleton rows while loading more */}
                   {loadingMore && Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={`sk-${i}`} />)}

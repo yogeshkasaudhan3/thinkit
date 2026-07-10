@@ -52,22 +52,34 @@ function useHomeSection(flag: 'isBestSeller' | 'isDwarikaSpecial'): Product[] {
 // ── ProductCard (memoized) ────────────────────────────────────────────────────
 // Exported so SubcategoryPage, SearchPage, and ProductDetailPage can reuse it.
 
-export const ProductCard = memo(function ProductCard({ product }: { product: Product }) {
+export const ProductCard = memo(function ProductCard({
+  product,
+  priority = false,
+}: {
+  product: Product;
+  priority?: boolean;
+}) {
   const [, setLocation] = useLocation();
   const { cart, addToCart, updateQty } = useApp();
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const [lqipLoaded, setLqipLoaded] = useState(false);
+  const [fullLoaded, setFullLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
   const cartItem = cart.find(c => c.product.id === product.id);
   const qty = cartItem ? cartItem.qty : 0;
 
-  const optimisedSrc = cloudinaryOpt(product.imageUrl, 400);
+  // 360px: at 390px viewport, 2-col grid with padding gives ~173px card slots.
+  // 173 × 2 DPR = 346px → round up to 360 for a crisp 2× render.
+  const fullSrc = cloudinaryOpt(product.imageUrl, 360);
+  // 20px LQIP loads in <100 ms; shown blurred until full image is ready
+  const lqipSrc = cloudinaryOpt(product.imageUrl, 20);
 
-  // Reset load/error state whenever the image source changes
+  // Reset state whenever the image source changes (e.g. category switch)
   useEffect(() => {
-    setImgLoaded(false);
+    setLqipLoaded(false);
+    setFullLoaded(false);
     setImgError(false);
-  }, [optimisedSrc]);
+  }, [fullSrc]);
 
   const handleAdd = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -90,27 +102,57 @@ export const ProductCard = memo(function ProductCard({ product }: { product: Pro
         </div>
       )}
 
-      {/* Image area — fixed 150px height, skeleton while loading */}
-      <div className="relative w-full bg-white border-b border-gray-100" style={{ height: 150 }}>
-        {optimisedSrc && !imgError ? (
+      {/* Image area — fixed 150px height */}
+      <div className="relative w-full bg-white border-b border-gray-100 overflow-hidden rounded-t-xl" style={{ height: 150 }}>
+        {fullSrc && !imgError ? (
           <>
-            {!imgLoaded && (
-              <div className="absolute inset-0 bg-gray-100 animate-pulse rounded-t-xl" />
+            {/* Gray pulse — visible only until the LQIP arrives */}
+            {!lqipLoaded && (
+              <div className="absolute inset-0 bg-gray-100 animate-pulse" />
             )}
+
+            {/* LQIP — 20 px thumbnail shown blurred while full image loads.
+                Skipped for priority cards: their full image is already eager-loaded. */}
+            {lqipSrc && !priority && (
+              <img
+                src={lqipSrc}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                onLoad={() => setLqipLoaded(true)}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  padding: 12,
+                  filter: 'blur(10px)',
+                  transform: 'scale(1.08)', // hide blur edge artefacts
+                  opacity: lqipLoaded && !fullLoaded ? 1 : 0,
+                  transition: 'opacity 0.15s ease',
+                }}
+              />
+            )}
+
+            {/* Full image — eager + high priority for the first visible row */}
             <img
-              src={optimisedSrc}
+              src={fullSrc}
               alt={product.name}
-              loading="lazy"
-              decoding="async"
+              loading={priority ? 'eager' : 'lazy'}
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-ignore — fetchPriority is valid HTML but may be missing from older @types/react
+              fetchPriority={priority ? 'high' : 'auto'}
+              decoding={priority ? 'sync' : 'async'}
               draggable={false}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => { setImgError(true); setImgLoaded(true); }}
+              onLoad={() => { setFullLoaded(true); setLqipLoaded(true); }}
+              onError={() => { setImgError(true); setLqipLoaded(true); setFullLoaded(true); }}
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain',
                 padding: 12,
-                opacity: imgLoaded ? 1 : 0,
+                opacity: fullLoaded ? 1 : 0,
                 transition: 'opacity 0.2s ease',
               }}
             />

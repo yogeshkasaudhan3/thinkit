@@ -11,6 +11,22 @@ import BottomNav from '../components/BottomNav';
 import { ProductCard } from './HomePage';
 import { CATEGORIES, type Product } from '../lib/mockData';
 import { useCategoryProducts } from '../lib/useCategoryProducts';
+import { usePreloadImages } from '../lib/usePreloadImages';
+
+// Matches SubcategoryPage's SkeletonCard exactly for visual consistency
+function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col animate-pulse">
+      <div className="h-[150px] bg-gray-100" />
+      <div className="px-2.5 pt-2 pb-2.5 flex flex-col gap-2">
+        <div className="h-2.5 bg-gray-100 rounded w-2/3" />
+        <div className="h-3 bg-gray-100 rounded w-full" />
+        <div className="h-3 bg-gray-100 rounded w-4/5" />
+        <div className="h-7 bg-gray-100 rounded-lg w-full mt-2" />
+      </div>
+    </div>
+  );
+}
 
 export default function ProductListingPage() {
   const [, params] = useRoute('/products/:categoryId');
@@ -22,6 +38,9 @@ export default function ProductListingPage() {
   const effectiveCategoryId = categoryId === 'all' ? undefined : categoryId;
   const { products: allLoaded, loading, loadingMore, hasMore, total, loadMore } =
     useCategoryProducts(effectiveCategoryId);
+
+  // Preload the first 6 above-the-fold images as soon as the first page arrives
+  usePreloadImages(allLoaded, 6);
 
   // Client-side price/stock filter on already-loaded pages
   let products: Product[] = allLoaded;
@@ -77,28 +96,21 @@ export default function ProductListingPage() {
       </div>
 
       <div className="flex-1 p-4">
+        {!loading && <p className="text-xs text-gray-500 mb-3">{total} products</p>}
         {loading ? (
-          <p className="text-xs text-gray-400 mb-3">Loading products…</p>
+          /* Initial load — 6 skeleton cards in the same 2-col grid */
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
         ) : (
-          <p className="text-xs text-gray-500 mb-3">{total} products</p>
+          <div className="grid grid-cols-2 gap-3">
+            {products.map((product, index) => (
+              // priority=true for first 6 (3 rows × 2 cols above the fold)
+              <ProductCard key={product.id} product={product} priority={index < 6} />
+            ))}
+            {loadingMore && Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
+          </div>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          {products.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-          {loadingMore && (
-            Array.from({ length: 2 }).map((_, i) => (
-              <div key={`sk-${i}`} className="bg-white rounded-xl border border-gray-100 overflow-hidden animate-pulse">
-                <div className="h-[150px] bg-gray-100" />
-                <div className="p-2.5 flex flex-col gap-2">
-                  <div className="h-2.5 bg-gray-100 rounded w-2/3" />
-                  <div className="h-3 bg-gray-100 rounded" />
-                  <div className="h-7 bg-gray-100 rounded-lg mt-1" />
-                </div>
-              </div>
-            ))
-          )}
-        </div>
         <div ref={sentinelRef} style={{ height: 1 }} />
         {!loading && products.length === 0 && (
           <div className="flex flex-col items-center justify-center h-40 text-gray-400">
