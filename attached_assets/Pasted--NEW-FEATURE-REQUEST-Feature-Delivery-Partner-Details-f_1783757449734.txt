@@ -1,0 +1,121 @@
+🚨 NEW FEATURE REQUEST
+
+Feature: Delivery Partner Details for Customers
+
+Currently, after an order is assigned to a delivery partner, the customer cannot see who is delivering the order.
+
+Please add Delivery Partner details to the customer app.
+
+--------------------------------------------------
+CUSTOMER APP
+--------------------------------------------------
+
+Once an order has been assigned to a delivery partner, the Order Details page should display a new section:
+
+Delivery Partner
+
+Show:
+
+• Delivery Partner Name
+• Mobile Number
+• Profile Photo (optional, if available)
+• Vehicle Type (optional)
+• Vehicle Number (optional)
+
+Example:
+
+Delivery Partner
+
+👤 Rahul Singh
+
+📞 +91 98XXXXXXXX
+
+🛵 Bike
+
+UP44 AB 1234
+
+--------------------------------------------------
+CALL BUTTON
+--------------------------------------------------
+
+Add a "Call Delivery Partner" button.
+
+Tapping it should directly open the phone dialer with the delivery partner's mobile number.
+
+--------------------------------------------------
+WHEN TO SHOW
+--------------------------------------------------
+
+If no delivery partner has been assigned yet:
+
+Do NOT show blank fields.
+
+Instead display:
+
+"Delivery partner will be assigned soon."
+
+--------------------------------------------------
+ADMIN PANEL
+--------------------------------------------------
+
+No major UI changes.
+
+If delivery partner information already exists in the admin system, simply expose it to the customer app.
+
+If required, include the assigned delivery partner details in the Order API response.
+
+--------------------------------------------------
+SECURITY
+--------------------------------------------------
+
+Only show details of the delivery partner assigned to THAT order.
+
+Do not expose information of any other delivery partner.
+
+--------------------------------------------------
+IMPORTANT
+--------------------------------------------------
+
+This feature must NOT modify any unrelated functionality.
+
+Do NOT change:
+
+❌ Login / Signup
+❌ Authentication
+❌ Home Page
+❌ Categories
+❌ Search
+❌ Cart
+❌ Checkout
+❌ Orders (except displaying delivery partner information)
+❌ Profile
+❌ Image Loading
+❌ Performance
+❌ Existing UI Styling
+❌ Theme
+❌ Business Logic unrelated to delivery partner details
+
+Only implement the Delivery Partner Details feature.
+
+--------------------------------------------------
+VERIFICATION
+--------------------------------------------------
+
+Verify:
+
+✓ Assigned orders show delivery partner details correctly.
+✓ Unassigned orders show "Delivery partner will be assigned soon."
+✓ Call button opens the phone dialer.
+✓ No unrelated functionality is affected.
+
+--------------------------------------------------
+FINAL REPORT
+--------------------------------------------------
+
+After implementation provide:
+
+1. Files modified.
+2. API changes.
+3. Customer app changes.
+4. Admin changes (if any).
+5. Confirmation that NO unrelated functionality was modified.

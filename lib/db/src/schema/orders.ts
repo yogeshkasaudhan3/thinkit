@@ -32,6 +32,13 @@ export const ordersTable = pgTable("orders", {
   // For mixed payments: how much was cash vs UPI
   cashAmount: integer("cash_amount"),
   upiAmount: integer("upi_amount"),
+  // Delivery partner assignment — set by admin once the order is handed off.
+  // All nullable: unassigned orders simply omit these.
+  deliveryPartnerName: text("delivery_partner_name"),
+  deliveryPartnerMobile: text("delivery_partner_mobile"),
+  deliveryPartnerPhotoUrl: text("delivery_partner_photo_url"),
+  deliveryPartnerVehicleType: text("delivery_partner_vehicle_type"),
+  deliveryPartnerVehicleNumber: text("delivery_partner_vehicle_number"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

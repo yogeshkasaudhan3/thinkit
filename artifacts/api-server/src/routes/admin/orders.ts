@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, ordersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/requireAdmin";
-import { UpdateOrderStatusParams } from "@workspace/api-zod";
+import { UpdateOrderStatusParams, AssignDeliveryPartnerParams } from "@workspace/api-zod";
 import { orderEvents } from "../../lib/orderEvents";
 
 const VALID_STATUSES = [
@@ -240,6 +240,55 @@ router.patch("/admin/orders/:id/status", requireAdmin, async (req, res): Promise
   const [updated] = await db
     .update(ordersTable)
     .set(updates)
+    .where(eq(ordersTable.id, params.data.id))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  res.json(serializeOrder(updated));
+});
+
+// ── Assign / update delivery partner ────────────────────────────────────────
+router.patch("/admin/orders/:id/delivery-partner", requireAdmin, async (req, res): Promise<void> => {
+  const params = AssignDeliveryPartnerParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+  const name = body.name;
+  const mobile = body.mobile;
+
+  if (!name || typeof name !== "string" || !name.trim()) {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  if (!mobile || typeof mobile !== "string" || !mobile.trim()) {
+    res.status(400).json({ error: "mobile is required" });
+    return;
+  }
+
+  const optionalField = (v: unknown): string | null => {
+    if (v === undefined || v === null) return null;
+    if (typeof v !== "string") return null;
+    const trimmed = v.trim();
+    return trimmed ? trimmed : null;
+  };
+
+  const [updated] = await db
+    .update(ordersTable)
+    .set({
+      deliveryPartnerName: name.trim(),
+      deliveryPartnerMobile: mobile.trim(),
+      deliveryPartnerPhotoUrl: optionalField(body.photoUrl),
+      deliveryPartnerVehicleType: optionalField(body.vehicleType),
+      deliveryPartnerVehicleNumber: optionalField(body.vehicleNumber),
+      updatedAt: new Date(),
+    })
     .where(eq(ordersTable.id, params.data.id))
     .returning();
 

@@ -4,7 +4,8 @@ import {
   useUpdateOrderStatus,
   getListAdminOrdersQueryKey,
   useGetAdminOrder,
-  getGetAdminOrderQueryKey
+  getGetAdminOrderQueryKey,
+  useAssignDeliveryPartner,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -21,6 +22,8 @@ import {
   CreditCard,
   Banknote,
   AlertCircle,
+  User,
+  Pencil,
 } from 'lucide-react';
 import { adminFetch } from '@/lib/admin-fetch';
 import { Button } from '@/components/ui/button';
@@ -674,6 +677,157 @@ function PaymentCollectionDialog({
   );
 }
 
+// ── Delivery Partner assignment dialog ────────────────────────────────────────
+
+function DeliveryPartnerDialog({
+  open,
+  orderId,
+  initial,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  orderId: number;
+  initial: {
+    name?: string | null;
+    mobile?: string | null;
+    vehicleType?: string | null;
+    vehicleNumber?: string | null;
+  };
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [name, setName] = useState(initial.name ?? '');
+  const [mobile, setMobile] = useState(initial.mobile ?? '');
+  const [vehicleType, setVehicleType] = useState(initial.vehicleType ?? '');
+  const [vehicleNumber, setVehicleNumber] = useState(initial.vehicleNumber ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const { mutate: assign, isPending } = useAssignDeliveryPartner();
+  const queryClient = useQueryClient();
+
+  // Reset fields whenever the dialog is (re)opened for a given order.
+  useEffect(() => {
+    if (open) {
+      setName(initial.name ?? '');
+      setMobile(initial.mobile ?? '');
+      setVehicleType(initial.vehicleType ?? '');
+      setVehicleNumber(initial.vehicleNumber ?? '');
+      setError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, orderId]);
+
+  const handleClose = () => {
+    if (!isPending) onClose();
+  };
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      setError('Delivery partner name is required.');
+      return;
+    }
+    if (!mobile.trim()) {
+      setError('Mobile number is required.');
+      return;
+    }
+    setError(null);
+
+    assign(
+      {
+        id: orderId,
+        data: {
+          name: name.trim(),
+          mobile: mobile.trim(),
+          vehicleType: vehicleType.trim() || undefined,
+          vehicleNumber: vehicleNumber.trim() || undefined,
+        },
+      },
+      {
+        onSuccess: (updated) => {
+          queryClient.setQueryData(getGetAdminOrderQueryKey(orderId), updated);
+          queryClient.invalidateQueries({ queryKey: getListAdminOrdersQueryKey() });
+          onSuccess();
+        },
+        onError: () => {
+          setError('Failed to save delivery partner details. Please try again.');
+        },
+      }
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-primary">
+            <Truck className="h-5 w-5" />
+            Assign Delivery Partner
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="dp-name">Name *</Label>
+            <Input
+              id="dp-name"
+              placeholder="e.g. Rahul Singh"
+              value={name}
+              onChange={(e) => { setName(e.target.value); setError(null); }}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dp-mobile">Mobile Number *</Label>
+            <Input
+              id="dp-mobile"
+              placeholder="e.g. 9876543210"
+              value={mobile}
+              onChange={(e) => { setMobile(e.target.value); setError(null); }}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="dp-vehicle-type">Vehicle Type</Label>
+              <Input
+                id="dp-vehicle-type"
+                placeholder="e.g. Bike"
+                value={vehicleType}
+                onChange={(e) => setVehicleType(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dp-vehicle-number">Vehicle Number</Label>
+              <Input
+                id="dp-vehicle-number"
+                placeholder="e.g. UP44 AB 1234"
+                value={vehicleNumber}
+                onChange={(e) => setVehicleNumber(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={handleClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Order detail slide-over ───────────────────────────────────────────────────
 
 function OrderSlideOver({ orderId, onClose }: { orderId: number | null; onClose: () => void }) {
@@ -689,6 +843,7 @@ function OrderSlideOver({ orderId, onClose }: { orderId: number | null; onClose:
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [deliveryPartnerDialogOpen, setDeliveryPartnerDialogOpen] = useState(false);
 
   const handleStatusUpdate = (newStatus: string) => {
     if (!orderId) return;
@@ -903,6 +1058,42 @@ function OrderSlideOver({ orderId, onClose }: { orderId: number | null; onClose:
                   </div>
                 </div>
 
+                {/* Delivery partner assignment (hidden for cancelled orders) */}
+                {order.status !== 'cancelled' && orderRecord && (
+                  <div>
+                    <div className="flex items-center justify-between border-b border-border pb-2 mb-3">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase">Delivery Partner</h4>
+                      <button
+                        onClick={() => setDeliveryPartnerDialogOpen(true)}
+                        className="text-xs font-medium text-primary flex items-center gap-1 hover:underline"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        {orderRecord.deliveryPartnerName ? 'Edit' : 'Assign'}
+                      </button>
+                    </div>
+                    {orderRecord.deliveryPartnerName ? (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <User className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{orderRecord.deliveryPartnerName as string}</div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Phone className="h-3 w-3" /> {orderRecord.deliveryPartnerMobile as string}
+                            {Boolean(orderRecord.deliveryPartnerVehicleType || orderRecord.deliveryPartnerVehicleNumber) && (
+                              <span className="ml-1">
+                                · {[orderRecord.deliveryPartnerVehicleType, orderRecord.deliveryPartnerVehicleNumber].filter(Boolean).join(' ')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Delivery partner will be assigned soon.</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Payment details section for delivered orders */}
                 {order.status === 'delivered' && orderRecord && (
                   <div>
@@ -972,6 +1163,22 @@ function OrderSlideOver({ orderId, onClose }: { orderId: number | null; onClose:
           grandTotal={order.grandTotal}
           onClose={() => setPaymentDialogOpen(false)}
           onSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* Delivery partner assignment dialog */}
+      {orderId && orderRecord && (
+        <DeliveryPartnerDialog
+          open={deliveryPartnerDialogOpen}
+          orderId={orderId}
+          initial={{
+            name: orderRecord.deliveryPartnerName as string | null,
+            mobile: orderRecord.deliveryPartnerMobile as string | null,
+            vehicleType: orderRecord.deliveryPartnerVehicleType as string | null,
+            vehicleNumber: orderRecord.deliveryPartnerVehicleNumber as string | null,
+          }}
+          onClose={() => setDeliveryPartnerDialogOpen(false)}
+          onSuccess={() => setDeliveryPartnerDialogOpen(false)}
         />
       )}
     </>

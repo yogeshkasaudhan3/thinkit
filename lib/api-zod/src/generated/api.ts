@@ -81,7 +81,12 @@ export const GetAdminDashboardResponse = zod.object({
   "paymentMethod": zod.string(),
   "orderNote": zod.string().nullish(),
   "status": zod.string(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "deliveryPartnerName": zod.string().nullish(),
+  "deliveryPartnerMobile": zod.string().nullish(),
+  "deliveryPartnerPhotoUrl": zod.string().nullish(),
+  "deliveryPartnerVehicleType": zod.string().nullish(),
+  "deliveryPartnerVehicleNumber": zod.string().nullish()
 }))
 })
 
@@ -122,7 +127,12 @@ export const ListAdminOrdersResponseItem = zod.object({
   "paymentMethod": zod.string(),
   "orderNote": zod.string().nullish(),
   "status": zod.string(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "deliveryPartnerName": zod.string().nullish(),
+  "deliveryPartnerMobile": zod.string().nullish(),
+  "deliveryPartnerPhotoUrl": zod.string().nullish(),
+  "deliveryPartnerVehicleType": zod.string().nullish(),
+  "deliveryPartnerVehicleNumber": zod.string().nullish()
 })
 export const ListAdminOrdersResponse = zod.array(ListAdminOrdersResponseItem)
 
@@ -162,7 +172,12 @@ export const GetAdminOrderResponse = zod.object({
   "paymentMethod": zod.string(),
   "orderNote": zod.string().nullish(),
   "status": zod.string(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "deliveryPartnerName": zod.string().nullish(),
+  "deliveryPartnerMobile": zod.string().nullish(),
+  "deliveryPartnerPhotoUrl": zod.string().nullish(),
+  "deliveryPartnerVehicleType": zod.string().nullish(),
+  "deliveryPartnerVehicleNumber": zod.string().nullish()
 })
 
 
@@ -205,7 +220,64 @@ export const UpdateOrderStatusResponse = zod.object({
   "paymentMethod": zod.string(),
   "orderNote": zod.string().nullish(),
   "status": zod.string(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "deliveryPartnerName": zod.string().nullish(),
+  "deliveryPartnerMobile": zod.string().nullish(),
+  "deliveryPartnerPhotoUrl": zod.string().nullish(),
+  "deliveryPartnerVehicleType": zod.string().nullish(),
+  "deliveryPartnerVehicleNumber": zod.string().nullish()
+})
+
+
+/**
+ * @summary Assign or update the delivery partner for an order
+ */
+export const AssignDeliveryPartnerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AssignDeliveryPartnerBody = zod.object({
+  "name": zod.string(),
+  "mobile": zod.string(),
+  "photoUrl": zod.string().nullish(),
+  "vehicleType": zod.string().nullish(),
+  "vehicleNumber": zod.string().nullish()
+})
+
+export const AssignDeliveryPartnerResponse = zod.object({
+  "id": zod.number(),
+  "orderNumber": zod.string(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerMobile": zod.string(),
+  "address": zod.object({
+  "houseNumber": zod.string(),
+  "area": zod.string(),
+  "landmark": zod.string().nullish(),
+  "pincode": zod.string()
+}),
+  "items": zod.array(zod.object({
+  "productId": zod.number().nullish(),
+  "name": zod.string(),
+  "brand": zod.string(),
+  "weight": zod.string(),
+  "qty": zod.number(),
+  "price": zod.number()
+})),
+  "subtotal": zod.number(),
+  "smallCartFee": zod.number(),
+  "deliveryFee": zod.number(),
+  "handlingFee": zod.number(),
+  "grandTotal": zod.number(),
+  "paymentMethod": zod.string(),
+  "orderNote": zod.string().nullish(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "deliveryPartnerName": zod.string().nullish(),
+  "deliveryPartnerMobile": zod.string().nullish(),
+  "deliveryPartnerPhotoUrl": zod.string().nullish(),
+  "deliveryPartnerVehicleType": zod.string().nullish(),
+  "deliveryPartnerVehicleNumber": zod.string().nullish()
 })
 
 

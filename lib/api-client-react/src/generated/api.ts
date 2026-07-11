@@ -29,6 +29,7 @@ import type {
   BulkImportInput,
   BulkImportResult,
   DashboardStats,
+  DeliveryPartnerInput,
   HealthStatus,
   ListAdminOrdersParams,
   ListAdminProductsParams,
@@ -673,6 +674,77 @@ export const useUpdateOrderStatus = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateOrderStatusMutationOptions(options));
+    }
+
+export const getAssignDeliveryPartnerUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/orders/${id}/delivery-partner`
+}
+
+/**
+ * @summary Assign or update the delivery partner for an order
+ */
+export const assignDeliveryPartner = async (id: number,
+    deliveryPartnerInput: DeliveryPartnerInput, options?: RequestInit): Promise<Order> => {
+
+  return customFetch<Order>(getAssignDeliveryPartnerUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(deliveryPartnerInput)
+  }
+);}
+
+
+
+
+export const getAssignDeliveryPartnerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignDeliveryPartner>>, TError,{id: number;data: BodyType<DeliveryPartnerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignDeliveryPartner>>, TError,{id: number;data: BodyType<DeliveryPartnerInput>}, TContext> => {
+
+const mutationKey = ['assignDeliveryPartner'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignDeliveryPartner>>, {id: number;data: BodyType<DeliveryPartnerInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  assignDeliveryPartner(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignDeliveryPartnerMutationResult = NonNullable<Awaited<ReturnType<typeof assignDeliveryPartner>>>
+    export type AssignDeliveryPartnerMutationBody = BodyType<DeliveryPartnerInput>
+    export type AssignDeliveryPartnerMutationError = ErrorType<void>
+
+    /**
+ * @summary Assign or update the delivery partner for an order
+ */
+export const useAssignDeliveryPartner = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignDeliveryPartner>>, TError,{id: number;data: BodyType<DeliveryPartnerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignDeliveryPartner>>,
+        TError,
+        {id: number;data: BodyType<DeliveryPartnerInput>},
+        TContext
+      > => {
+      return useMutation(getAssignDeliveryPartnerMutationOptions(options));
     }
 
 export const getListAdminProductsUrl = (params?: ListAdminProductsParams,) => {

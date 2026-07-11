@@ -55,6 +55,16 @@ export interface Order {
   orderNote?: string | null;
   status: string;
   createdAt: string;
+  /** @nullable */
+  deliveryPartnerName?: string | null;
+  /** @nullable */
+  deliveryPartnerMobile?: string | null;
+  /** @nullable */
+  deliveryPartnerPhotoUrl?: string | null;
+  /** @nullable */
+  deliveryPartnerVehicleType?: string | null;
+  /** @nullable */
+  deliveryPartnerVehicleNumber?: string | null;
 }
 
 export interface DashboardStats {
@@ -68,6 +78,17 @@ export interface DashboardStats {
 
 export interface OrderStatusUpdate {
   status: string;
+}
+
+export interface DeliveryPartnerInput {
+  name: string;
+  mobile: string;
+  /** @nullable */
+  photoUrl?: string | null;
+  /** @nullable */
+  vehicleType?: string | null;
+  /** @nullable */
+  vehicleNumber?: string | null;
 }
 
 export interface AdminProduct {

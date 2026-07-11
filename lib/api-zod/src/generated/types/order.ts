@@ -27,4 +27,14 @@ export interface Order {
   orderNote?: string | null;
   status: string;
   createdAt: string;
+  /** @nullable */
+  deliveryPartnerName?: string | null;
+  /** @nullable */
+  deliveryPartnerMobile?: string | null;
+  /** @nullable */
+  deliveryPartnerPhotoUrl?: string | null;
+  /** @nullable */
+  deliveryPartnerVehicleType?: string | null;
+  /** @nullable */
+  deliveryPartnerVehicleNumber?: string | null;
 }

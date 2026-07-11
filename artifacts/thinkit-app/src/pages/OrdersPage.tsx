@@ -12,6 +12,8 @@ import {
   AlertCircle,
   CreditCard,
   Banknote,
+  User,
+  Phone,
 } from 'lucide-react';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
@@ -59,6 +61,12 @@ interface Order {
   paymentCollectionMethod?: 'cash' | 'upi' | 'mixed' | null;
   cashAmount?: number | null;
   upiAmount?: number | null;
+  // Delivery partner (set by admin once assigned)
+  deliveryPartnerName?: string | null;
+  deliveryPartnerMobile?: string | null;
+  deliveryPartnerPhotoUrl?: string | null;
+  deliveryPartnerVehicleType?: string | null;
+  deliveryPartnerVehicleNumber?: string | null;
 }
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -135,6 +143,56 @@ function PaymentDetail({ order }: { order: Order }) {
     <div className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-green-700 bg-green-50 rounded-lg px-3 py-2">
       <CreditCard size={13} />
       Paid via {order.paymentCollectionMethod === 'cash' ? 'Cash' : 'UPI'}
+    </div>
+  );
+}
+
+// ── Delivery partner section ──────────────────────────────────────────────────
+
+function DeliveryPartnerSection({ order }: { order: Order }) {
+  if (order.status === 'cancelled') return null;
+
+  if (!order.deliveryPartnerName) {
+    return (
+      <div className="bg-gray-50 rounded-xl px-3 py-2.5 text-xs text-gray-500 font-medium">
+        Delivery partner will be assigned soon.
+      </div>
+    );
+  }
+
+  const vehicleLine = [order.deliveryPartnerVehicleType, order.deliveryPartnerVehicleNumber]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <div className="bg-primary/5 rounded-xl p-3 space-y-2">
+      <p className="text-xs font-bold text-gray-500 uppercase">Delivery Partner</p>
+      <div className="flex items-center gap-3">
+        {order.deliveryPartnerPhotoUrl ? (
+          <img
+            src={order.deliveryPartnerPhotoUrl}
+            alt={order.deliveryPartnerName}
+            className="w-10 h-10 rounded-full object-cover shrink-0"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
+            <User size={18} />
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="font-bold text-sm text-gray-900 truncate">{order.deliveryPartnerName}</p>
+          {vehicleLine && <p className="text-xs text-gray-500 truncate">{vehicleLine}</p>}
+        </div>
+      </div>
+      {order.deliveryPartnerMobile && (
+        <a
+          href={`tel:${order.deliveryPartnerMobile}`}
+          className="w-full flex items-center justify-center gap-2 py-2 bg-primary text-white rounded-lg text-sm font-semibold active:opacity-90"
+        >
+          <Phone size={14} />
+          Call Delivery Partner
+        </a>
+      )}
     </div>
   );
 }
@@ -404,6 +462,11 @@ function ActiveOrderCard({
         <p className="text-xs text-gray-400">{formatDate(order.createdAt)}</p>
       </div>
 
+      {/* Delivery partner */}
+      <div className="px-4 pt-3">
+        <DeliveryPartnerSection order={order} />
+      </div>
+
       {/* Actions */}
       {canCancel && (
         <div className="p-4 border-t border-gray-100">
@@ -494,6 +557,9 @@ function HistoryOrderCard({ order, onReorder }: { order: Order; onReorder: () =>
 
       {/* Payment info (for delivered orders) */}
       {delivered && <PaymentDetail order={order} />}
+
+      {/* Delivery partner (for delivered orders) */}
+      {delivered && <DeliveryPartnerSection order={order} />}
 
       {/* Items summary / expanded */}
       <button

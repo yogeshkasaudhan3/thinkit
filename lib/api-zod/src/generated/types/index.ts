@@ -15,6 +15,7 @@ export * from './bannerUpdate';
 export * from './bulkImportInput';
 export * from './bulkImportResult';
 export * from './dashboardStats';
+export * from './deliveryPartnerInput';
 export * from './healthStatus';
 export * from './listAdminOrdersParams';
 export * from './listAdminProductsParams';
