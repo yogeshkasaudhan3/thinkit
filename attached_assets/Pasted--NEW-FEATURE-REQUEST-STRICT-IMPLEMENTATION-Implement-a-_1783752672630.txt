@@ -1,0 +1,217 @@
+🚨 NEW FEATURE REQUEST (STRICT IMPLEMENTATION)
+
+Implement a Product Variants feature for the Customer App and Admin Panel.
+
+This is a NEW FEATURE ONLY.
+
+The rest of the application must remain EXACTLY the same.
+
+--------------------------------------------------
+FEATURE REQUIREMENT
+--------------------------------------------------
+
+Some products are sold in multiple pack sizes.
+
+Example:
+
+Product:
+Chana
+
+Variants:
+
+• 250g — ₹20
+• 500g — ₹40
+• 1kg — ₹80
+
+--------------------------------------------------
+CUSTOMER APP
+--------------------------------------------------
+
+When a product has multiple variants:
+
+• Show a Variant selector.
+• Display all available variants.
+• Only one variant can be selected at a time.
+• Selecting a variant should instantly update:
+  - Selling Price
+  - MRP
+  - Discount
+  - Weight
+
+When the customer taps Add to Cart:
+
+Store:
+
+• Product ID
+• Variant ID
+• Variant Name
+• Weight
+• Price
+
+Different variants of the same product should behave as separate cart items.
+
+Example:
+
+Chana 250g ×1
+
+Chana 500g ×2
+
+--------------------------------------------------
+PRODUCT LIST
+--------------------------------------------------
+
+Show only ONE product card.
+
+Do NOT create separate product cards for every variant.
+
+Variants should appear only after opening the Product Details page.
+
+--------------------------------------------------
+PRODUCTS WITHOUT VARIANTS
+--------------------------------------------------
+
+Products that have only one size should continue working exactly as they do today.
+
+No UI changes for those products.
+
+--------------------------------------------------
+ADMIN PANEL
+--------------------------------------------------
+
+Inside Product Details, add a new section:
+
+Variants
+
+The admin should be able to:
+
+✓ Add Variant
+✓ Edit Variant
+✓ Delete Variant
+
+Each Variant should contain:
+
+• Variant Name
+• Weight
+• Selling Price
+• MRP
+• Stock Quantity
+• SKU (Optional)
+• Barcode (Optional)
+• Active / Inactive
+
+Example:
+
+250g
+MRP ₹25
+Price ₹20
+Stock 100
+
+500g
+MRP ₹45
+Price ₹40
+Stock 60
+
+1kg
+MRP ₹90
+Price ₹80
+Stock 30
+
+--------------------------------------------------
+INVENTORY
+--------------------------------------------------
+
+Every variant should have its own stock.
+
+Example:
+
+250g → 120
+
+500g → 60
+
+1kg → 25
+
+Selling one variant must reduce only that variant's stock.
+
+--------------------------------------------------
+SEARCH
+--------------------------------------------------
+
+Searching "Chana" should display only one product.
+
+Variants should only be visible after opening the product details.
+
+--------------------------------------------------
+BACKWARD COMPATIBILITY
+--------------------------------------------------
+
+Existing products without variants must continue working exactly as before.
+
+No migration issues.
+
+--------------------------------------------------
+🚨 VERY IMPORTANT
+--------------------------------------------------
+
+This feature must NOT change any existing functionality.
+
+Do NOT modify or affect:
+
+❌ Login / Signup
+❌ Authentication
+❌ Home Page
+❌ Categories
+❌ Subcategories
+❌ Search
+❌ Product Listing UI
+❌ Existing Product Cards
+❌ Cart Logic (except adding variant support)
+❌ Checkout Flow
+❌ Orders
+❌ Profile
+❌ Image Loading
+❌ Performance Optimizations
+❌ Database schema unrelated to variants
+❌ APIs unrelated to variants
+❌ UI Styling
+❌ Theme
+❌ Colors
+❌ Animations
+❌ Navigation
+❌ Existing Business Logic
+
+Only add the Product Variants feature.
+
+If any existing file is unrelated to variants, DO NOT modify it.
+
+Do not refactor unrelated code.
+
+Do not optimize unrelated code.
+
+Do not introduce regressions.
+
+--------------------------------------------------
+VERIFICATION
+--------------------------------------------------
+
+After implementation verify:
+
+✓ Products with variants work correctly.
+✓ Products without variants work exactly as before.
+✓ Variant selection updates price correctly.
+✓ Correct variant is added to cart.
+✓ Variant stock works correctly.
+✓ Orders save the selected variant correctly.
+✓ No existing feature is affected.
+
+--------------------------------------------------
+FINAL REPORT
+--------------------------------------------------
+
+After implementation provide:
+
+1. Files modified.
+2. Database changes.
+3. API changes.
+4. Admin Panel changes.
+5. Customer App changes.
+6. Confirmation that NO unrelated functionality was modified.
