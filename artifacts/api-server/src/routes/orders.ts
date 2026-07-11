@@ -11,8 +11,8 @@
  * ───────────────────────────────────────────────────────────────────────────
  */
 import { Router, type IRouter } from "express";
-import { db, ordersTable, addressesTable, productsTable, storeSettingsTable } from "@workspace/db";
-import { eq, inArray, sql } from "drizzle-orm";
+import { db, ordersTable, addressesTable, productsTable, productVariantsTable, storeSettingsTable } from "@workspace/db";
+import { eq, inArray, sql, and } from "drizzle-orm";
 import { requireAuth, type AuthUser } from "../middleware/requireAuth";
 import { orderEvents } from "../lib/orderEvents";
 
@@ -75,6 +75,7 @@ function computeDeliveryFee(subtotal: number, s: FeeSettings): number {
 
 interface RawItem {
   productId: string;
+  variantId?: string;
   qty: number;
 }
 
@@ -102,6 +103,11 @@ function isValidBody(b: unknown): b is CreateOrderBody {
       !Number.isInteger(it.qty) ||
       it.qty < 1 ||
       it.qty > 100
+    ) return false;
+
+    if (
+      it.variantId !== undefined &&
+      (typeof it.variantId !== "string" || !it.variantId.trim())
     ) return false;
   }
 
@@ -242,6 +248,30 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
 
   const productMap = new Map(dbProducts.map((p) => [p.id, p]));
 
+  // Fetch authoritative variant data (alternate pack sizes) for any items that
+  // reference one. A variant belongs to exactly one product — the (productId,
+  // variantId) pair is validated below so a customer can't buy a variant that
+  // doesn't belong to the product they claim to be ordering.
+  const variantIds = rawItems
+    .map((i) => (i.variantId ? parseInt(i.variantId, 10) : null))
+    .filter((n): n is number => n !== null && !isNaN(n));
+
+  const dbVariants = variantIds.length
+    ? await db
+        .select({
+          id: productVariantsTable.id,
+          productId: productVariantsTable.productId,
+          name: productVariantsTable.name,
+          weight: productVariantsTable.weight,
+          price: productVariantsTable.price,
+          stockQty: productVariantsTable.stockQty,
+          active: productVariantsTable.active,
+        })
+        .from(productVariantsTable)
+        .where(inArray(productVariantsTable.id, variantIds))
+    : [];
+  const variantMap = new Map(dbVariants.map((v) => [v.id, v]));
+
   for (const raw of rawItems) {
     const id = parseInt(raw.productId, 10);
     const product = productMap.get(id);
@@ -253,16 +283,46 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
       res.status(400).json({ error: `Product "${product.name}" is not available` });
       return;
     }
-    if (!product.inStock) {
+
+    if (raw.variantId) {
+      const variantId = parseInt(raw.variantId, 10);
+      const variant = variantMap.get(variantId);
+      if (!variant || variant.productId !== id) {
+        res.status(400).json({ error: `Selected pack size for "${product.name}" is no longer available` });
+        return;
+      }
+      if (!variant.active) {
+        res.status(400).json({ error: `"${product.name}" (${variant.weight}) is no longer available` });
+        return;
+      }
+      if (variant.stockQty < raw.qty) {
+        res.status(400).json({ error: `"${product.name}" (${variant.weight}) is out of stock` });
+        return;
+      }
+    } else if (!product.inStock) {
       res.status(400).json({ error: `Product "${product.name}" is out of stock` });
       return;
     }
   }
 
   // ── 2. Build items with server-authoritative prices ───────────────────────
+  // Each line uses the selected variant's own name/weight/price snapshot when
+  // present, otherwise the base product's — non-variant orders are unaffected.
   const items = rawItems.map((raw) => {
     const id = parseInt(raw.productId, 10);
     const p = productMap.get(id)!;
+    if (raw.variantId) {
+      const v = variantMap.get(parseInt(raw.variantId, 10))!;
+      return {
+        productId: String(p.id),
+        variantId: String(v.id),
+        name: `${p.name} (${v.weight})`,
+        brand: p.brand,
+        weight: v.weight,
+        qty: raw.qty,
+        price: v.price,
+      };
+    }
     return { productId: String(p.id), name: p.name, brand: p.brand, weight: p.weight, qty: raw.qty, price: p.price };
   });
 
@@ -308,22 +368,51 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
     isNew: true,
   };
 
+  // Variant lines to decrement stock for, inside the same transaction as the
+  // order insert so a race between two concurrent orders can't oversell a
+  // pack size — the conditional WHERE clause makes each decrement atomic.
+  const variantDecrements = items
+    .filter((it): it is typeof it & { variantId: string } => "variantId" in it)
+    .map((it) => ({ variantId: parseInt(it.variantId, 10), qty: it.qty, name: it.name }));
+
   let inserted: Record<string, unknown> | undefined;
+  let outOfStockError: string | null = null;
+
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const [row] = await db
-        .insert(ordersTable)
-        .values({ ...values, orderNumber: makeOrderNumber() })
-        .returning();
-      inserted = row as unknown as Record<string, unknown>;
+      inserted = await db.transaction(async (tx) => {
+        for (const dec of variantDecrements) {
+          const [updated] = await tx
+            .update(productVariantsTable)
+            .set({ stockQty: sql`${productVariantsTable.stockQty} - ${dec.qty}`, updatedAt: new Date() })
+            .where(and(eq(productVariantsTable.id, dec.variantId), sql`${productVariantsTable.stockQty} >= ${dec.qty}`))
+            .returning({ id: productVariantsTable.id });
+          if (!updated) {
+            outOfStockError = `"${dec.name}" is out of stock`;
+            throw new Error("VARIANT_OUT_OF_STOCK");
+          }
+        }
+
+        const [row] = await tx
+          .insert(ordersTable)
+          .values({ ...values, orderNumber: makeOrderNumber() })
+          .returning();
+        return row as unknown as Record<string, unknown>;
+      });
       break;
     } catch (err: unknown) {
+      if (outOfStockError) break;
       const isUniqueViolation =
         typeof err === "object" && err !== null && "code" in err &&
         (err as { code?: string }).code === "23505";
       if (isUniqueViolation && attempt < 3) continue;
       throw err;
     }
+  }
+
+  if (outOfStockError) {
+    res.status(400).json({ error: outOfStockError });
+    return;
   }
 
   if (!inserted) {

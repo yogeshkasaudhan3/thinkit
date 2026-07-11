@@ -22,6 +22,7 @@ import { Product } from '../lib/mockData';
 
 interface OrderItem {
   productId: string;
+  variantId?: string;
   name: string;
   brand: string;
   weight: string;
@@ -213,8 +214,14 @@ export default function OrdersPage() {
         price: item.price,
         inStock: true,
       };
-      addToCart(product);         // adds 1 to cart
-      updateQty(item.productId, item.qty); // set correct qty
+      // Reconstruct a minimal variant stub so the (productId, variantId) cart
+      // line matches what was actually ordered — price/weight are already
+      // baked into `product` above from the order snapshot.
+      const variant = item.variantId
+        ? { id: item.variantId, productId: item.productId, name: item.name, weight: item.weight, mrp: item.price, price: item.price, stockQty: 1, inStock: true }
+        : undefined;
+      addToCart(product, variant);                          // adds 1 to cart
+      updateQty(item.productId, item.qty, item.variantId);   // set correct qty
     });
   };
 

@@ -15,8 +15,8 @@
  *   isDwarikaSpecial — "true" to filter
  */
 import { Router, type IRouter } from "express";
-import { db, productsTable } from "@workspace/db";
-import { eq, ilike, and, or, count, sql } from "drizzle-orm";
+import { db, productsTable, productVariantsTable } from "@workspace/db";
+import { eq, ilike, and, or, count, sql, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -118,7 +118,15 @@ router.get("/products/:id", async (req, res): Promise<void> => {
       return;
     }
 
-    res.json(serializeProduct(product));
+    // Alternate pack-size options (additive — a product with none behaves
+    // exactly as it did before variants existed).
+    const variants = await db
+      .select()
+      .from(productVariantsTable)
+      .where(and(eq(productVariantsTable.productId, product.id), eq(productVariantsTable.active, true)))
+      .orderBy(asc(productVariantsTable.sortOrder), asc(productVariantsTable.id));
+
+    res.json({ ...serializeProduct(product), variants: variants.map(serializeVariant) });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch product" });
   }
@@ -133,6 +141,19 @@ function serializeProduct(p: Record<string, unknown>) {
       p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt ?? ""),
     updatedAt:
       p.updatedAt instanceof Date ? p.updatedAt.toISOString() : String(p.updatedAt ?? ""),
+  };
+}
+
+function serializeVariant(v: Record<string, unknown>) {
+  return {
+    id: String(v.id),
+    productId: String(v.productId),
+    name: v.name,
+    weight: v.weight,
+    mrp: v.mrp,
+    price: v.price,
+    stockQty: v.stockQty,
+    inStock: (v.stockQty as number) > 0,
   };
 }
 

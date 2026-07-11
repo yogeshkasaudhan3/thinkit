@@ -89,10 +89,10 @@ export default function CartPage() {
                     <Trash2 size={16} />
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mb-2">{item.product.weight}</p>
+                <p className="text-xs text-gray-500 mb-2">{item.variant?.weight ?? item.product.weight}</p>
                 
                 <div className="mt-auto flex items-center justify-between">
-                  <p className="font-bold text-gray-900">₹{item.product.price}</p>
+                  <p className="font-bold text-gray-900">₹{item.variant?.price ?? item.product.price}</p>
                   
                   <div className="flex items-center bg-primary text-white rounded-lg h-8 w-[80px]">
                     <button onClick={() => updateQty(item.id, item.qty - 1)} className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-l-lg">

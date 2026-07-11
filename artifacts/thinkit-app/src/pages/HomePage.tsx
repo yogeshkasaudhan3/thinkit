@@ -68,7 +68,10 @@ export const ProductCard = memo(function ProductCard({
   const fullImgRef = useRef<HTMLImageElement>(null);
   const lqipImgRef = useRef<HTMLImageElement>(null);
 
-  const cartItem = cart.find(c => c.product.id === product.id);
+  // Cards always represent the base product (no variant selection here) —
+  // match only the base cart line so a variant line added from the detail
+  // page doesn't bleed into this card's quantity.
+  const cartItem = cart.find(c => c.product.id === product.id && !c.variant);
   const qty = cartItem ? cartItem.qty : 0;
 
   // 360px: at 390px viewport, 2-col grid with padding gives ~173px card slots.

@@ -213,7 +213,7 @@ export const UpdateOrderStatusResponse = zod.object({
  * @summary List products with optional search/filter
  */
 export const ListAdminProductsQueryParams = zod.object({
-  "q": zod.coerce.string().optional().describe('Search by name, brand or SKU'),
+  "q": zod.coerce.string().optional().describe('Search by name or brand'),
   "category": zod.coerce.string().optional().describe('Filter by categoryId'),
   "inStock": zod.coerce.boolean().optional().describe('Filter by stock status'),
   "enabled": zod.coerce.boolean().optional().describe('Filter by enabled status')
@@ -297,6 +297,7 @@ export const BulkImportProductsBody = zod.object({
   "price": zod.number(),
   "weight": zod.string(),
   "imageUrl": zod.string().optional(),
+  "sku": zod.string().optional(),
   "stockQty": zod.number().optional(),
   "inStock": zod.boolean().optional(),
   "enabled": zod.boolean().optional(),
@@ -427,6 +428,110 @@ export const ToggleProductStockResponse = zod.object({
   "isDwarikaSpecial": zod.boolean(),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary List variants (pack sizes) for a product
+ */
+export const ListProductVariantsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListProductVariantsResponseItem = zod.object({
+  "id": zod.number(),
+  "productId": zod.number(),
+  "name": zod.string(),
+  "weight": zod.string(),
+  "mrp": zod.number(),
+  "price": zod.number(),
+  "sku": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "stockQty": zod.number(),
+  "active": zod.boolean(),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string()
+})
+export const ListProductVariantsResponse = zod.array(ListProductVariantsResponseItem)
+
+
+/**
+ * @summary Create a new variant (pack size) for a product
+ */
+export const CreateProductVariantParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateProductVariantBody = zod.object({
+  "name": zod.string(),
+  "weight": zod.string(),
+  "mrp": zod.number(),
+  "price": zod.number(),
+  "sku": zod.string().optional(),
+  "barcode": zod.string().optional(),
+  "stockQty": zod.number().optional(),
+  "active": zod.boolean().optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const CreateProductVariantResponse = zod.object({
+  "id": zod.number(),
+  "productId": zod.number(),
+  "name": zod.string(),
+  "weight": zod.string(),
+  "mrp": zod.number(),
+  "price": zod.number(),
+  "sku": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "stockQty": zod.number(),
+  "active": zod.boolean(),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a variant
+ */
+export const UpdateProductVariantParams = zod.object({
+  "variantId": zod.coerce.number()
+})
+
+export const UpdateProductVariantBody = zod.object({
+  "name": zod.string().optional(),
+  "weight": zod.string().optional(),
+  "mrp": zod.number().optional(),
+  "price": zod.number().optional(),
+  "sku": zod.string().optional(),
+  "barcode": zod.string().optional(),
+  "stockQty": zod.number().optional(),
+  "active": zod.boolean().optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const UpdateProductVariantResponse = zod.object({
+  "id": zod.number(),
+  "productId": zod.number(),
+  "name": zod.string(),
+  "weight": zod.string(),
+  "mrp": zod.number(),
+  "price": zod.number(),
+  "sku": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "stockQty": zod.number(),
+  "active": zod.boolean(),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a variant
+ */
+export const DeleteProductVariantParams = zod.object({
+  "variantId": zod.coerce.number()
+})
+
+export const DeleteProductVariantResponse = zod.void()
 
 
 /**

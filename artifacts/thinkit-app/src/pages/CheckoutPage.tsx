@@ -37,13 +37,16 @@ export default function CheckoutPage() {
   const handlePlaceOrder = async () => {
     setIsPlacing(true);
     try {
+      // Server re-derives name/brand/weight/price authoritatively from
+      // (productId, variantId) — only identity + qty are actually trusted.
       const items = cart.map(item => ({
         productId: item.product.id,
+        variantId: item.variant?.id,
         name: item.product.name,
         brand: item.product.brand,
-        weight: item.product.weight,
+        weight: item.variant?.weight ?? item.product.weight,
         qty: item.qty,
-        price: item.product.price,
+        price: item.variant?.price ?? item.product.price,
       }));
 
       const res = await fetch('/api/orders', {
@@ -129,12 +132,16 @@ export default function CheckoutPage() {
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
           <h3 className="font-bold text-gray-900 text-sm mb-3">Order Summary ({cart.length} Items)</h3>
           <div className="space-y-3 mb-4">
-            {cart.map(item => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <span className="text-gray-600 line-clamp-1 pr-4">{item.qty} x {item.product.name}</span>
-                <span className="font-medium text-gray-900 shrink-0">₹{item.qty * item.product.price}</span>
-              </div>
-            ))}
+            {cart.map(item => {
+              const unitPrice = item.variant?.price ?? item.product.price;
+              const label = item.variant ? `${item.product.name} (${item.variant.weight})` : item.product.name;
+              return (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <span className="text-gray-600 line-clamp-1 pr-4">{item.qty} x {label}</span>
+                  <span className="font-medium text-gray-900 shrink-0">₹{item.qty * unitPrice}</span>
+                </div>
+              );
+            })}
           </div>
           
           <div className="border-t border-gray-100 pt-3 space-y-2.5 text-sm">

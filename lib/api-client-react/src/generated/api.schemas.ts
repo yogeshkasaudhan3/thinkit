@@ -130,6 +130,47 @@ export interface ProductUpdate {
   isDwarikaSpecial?: boolean;
 }
 
+export interface ProductVariant {
+  id: number;
+  productId: number;
+  name: string;
+  weight: string;
+  mrp: number;
+  price: number;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  barcode?: string | null;
+  stockQty: number;
+  active: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface ProductVariantInput {
+  name: string;
+  weight: string;
+  mrp: number;
+  price: number;
+  sku?: string;
+  barcode?: string;
+  stockQty?: number;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+export interface ProductVariantUpdate {
+  name?: string;
+  weight?: string;
+  mrp?: number;
+  price?: number;
+  sku?: string;
+  barcode?: string;
+  stockQty?: number;
+  active?: boolean;
+  sortOrder?: number;
+}
+
 export interface StockToggle {
   inStock: boolean;
 }

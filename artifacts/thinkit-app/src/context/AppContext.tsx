@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product } from '../lib/mockData';
+import { Product, ProductVariant } from '../lib/mockData';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
+// A cart line is uniquely identified by (product.id, variant?.id). When no
+// variant is selected the line behaves exactly as it did before variants
+// existed — `id` stays equal to `product.id` for backward compatibility with
+// any cart already saved in localStorage.
 export interface CartItem {
   id: string;
   product: Product;
+  variant?: ProductVariant | null;
   qty: number;
 }
 
@@ -50,9 +55,9 @@ interface AppContextType {
 
   // ── Cart ──────────────────────────────────────────────────────────────────
   cart: CartItem[];
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateQty: (productId: string, qty: number) => void;
+  addToCart: (product: Product, variant?: ProductVariant | null) => void;
+  removeFromCart: (productId: string, variantId?: string) => void;
+  updateQty: (productId: string, qty: number, variantId?: string) => void;
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
@@ -142,25 +147,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Cart helpers ────────────────────────────────────────────────────────────
+  // Cart line id: plain productId when there's no variant (unchanged from
+  // before variants existed), otherwise `${productId}::v${variantId}` so the
+  // same product can have multiple independent pack-size lines in the cart.
+  const cartLineId = (productId: string, variantId?: string) =>
+    variantId ? `${productId}::v${variantId}` : productId;
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, variant?: ProductVariant | null) => {
+    const id = cartLineId(product.id, variant?.id);
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      const existing = prev.find(item => item.id === id);
       if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item
-        );
+        return prev.map(item => item.id === id ? { ...item, qty: item.qty + 1 } : item);
       }
-      return [...prev, { id: product.id, product, qty: 1 }];
+      return [...prev, { id, product, variant: variant ?? null, qty: 1 }];
     });
   };
 
-  const removeFromCart = (productId: string) =>
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const removeFromCart = (productId: string, variantId?: string) => {
+    const id = cartLineId(productId, variantId);
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
 
-  const updateQty = (productId: string, qty: number) => {
-    if (qty <= 0) { removeFromCart(productId); return; }
-    setCart(prev => prev.map(item => item.product.id === productId ? { ...item, qty } : item));
+  const updateQty = (productId: string, qty: number, variantId?: string) => {
+    const id = cartLineId(productId, variantId);
+    if (qty <= 0) { removeFromCart(productId, variantId); return; }
+    setCart(prev => prev.map(item => item.id === id ? { ...item, qty } : item));
   };
 
   const clearCart = () => {
@@ -168,7 +180,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('thinkit_cart');
   };
 
-  const cartTotal = cart.reduce((t, item) => t + item.product.price * item.qty, 0);
+  const lineUnitPrice = (item: CartItem) => item.variant?.price ?? item.product.price;
+  const cartTotal = cart.reduce((t, item) => t + lineUnitPrice(item) * item.qty, 0);
   const cartCount = cart.reduce((c, item) => c + item.qty, 0);
   const isLoggedIn = authStatus === 'authenticated' && authUser !== null;
 

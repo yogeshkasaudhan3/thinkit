@@ -9,6 +9,21 @@ export interface Category {
 }
 
 /**
+ * Alternate pack size for a product (e.g. "1 kg" alongside the product's own
+ * base weight). Purely additive — a product with no variants is unaffected.
+ */
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  name: string;
+  weight: string;
+  mrp: number;
+  price: number;
+  stockQty: number;
+  inStock: boolean;
+}
+
+/**
  * Product shape — mirrors the API server's serialized DB row.
  * `color` is optional (kept for any cart items saved in localStorage from
  * the old mock-data era; new DB products derive their color from CATEGORY_COLORS).
@@ -28,6 +43,8 @@ export interface Product {
   sku?: string | null;
   isBestSeller?: boolean;
   isDwarikaSpecial?: boolean;
+  /** Alternate pack sizes — only populated on the single-product fetch. */
+  variants?: ProductVariant[];
   /** Legacy field — present on old localStorage cart items only. */
   color?: string;
 }

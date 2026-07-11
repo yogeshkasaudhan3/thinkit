@@ -18,6 +18,8 @@ tags:
     description: Order management
   - name: admin-products
     description: Product management
+  - name: admin-product-variants
+    description: Product variant (pack size) management
   - name: admin-banners
     description: Banner management
   - name: Storage
@@ -331,6 +333,95 @@ paths:
         "404":
           description: Product not found
 
+  # ── Admin Product Variants ────────────────────────────────────────────────────
+  /admin/products/{id}/variants:
+    get:
+      operationId: listProductVariants
+      tags: [admin-product-variants]
+      summary: List variants (pack sizes) for a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of variants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductVariant"
+    post:
+      operationId: createProductVariant
+      tags: [admin-product-variants]
+      summary: Create a new variant (pack size) for a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductVariantInput"
+      responses:
+        "201":
+          description: Created variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVariant"
+        "404":
+          description: Product not found
+
+  /admin/products/variants/{variantId}:
+    patch:
+      operationId: updateProductVariant
+      tags: [admin-product-variants]
+      summary: Update a variant
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductVariantUpdate"
+      responses:
+        "200":
+          description: Updated variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVariant"
+        "404":
+          description: Variant not found
+    delete:
+      operationId: deleteProductVariant
+      tags: [admin-product-variants]
+      summary: Delete a variant
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Variant not found
+
   # ── Admin Banners ─────────────────────────────────────────────────────────────
   /admin/banners:
     get:
@@ -600,6 +691,8 @@ components:
           type: string
         imageUrl:
           type: ["string", "null"]
+        sku:
+          type: ["string", "null"]
         stockQty:
           type: integer
         inStock:
@@ -635,6 +728,8 @@ components:
           type: string
         imageUrl:
           type: string
+        sku:
+          type: string
         stockQty:
           type: integer
         inStock:
@@ -667,6 +762,8 @@ components:
           type: string
         imageUrl:
           type: string
+        sku:
+          type: string
         stockQty:
           type: integer
         inStock:
@@ -677,6 +774,81 @@ components:
           type: boolean
         isDwarikaSpecial:
           type: boolean
+
+    # ── Product variant (pack size) schemas ───────────────────────────────────────
+    ProductVariant:
+      type: object
+      required: [id, productId, name, weight, mrp, price, stockQty, active, sortOrder, createdAt]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        name:
+          type: string
+        weight:
+          type: string
+        mrp:
+          type: integer
+        price:
+          type: integer
+        sku:
+          type: ["string", "null"]
+        barcode:
+          type: ["string", "null"]
+        stockQty:
+          type: integer
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+
+    ProductVariantInput:
+      type: object
+      required: [name, weight, mrp, price]
+      properties:
+        name:
+          type: string
+        weight:
+          type: string
+        mrp:
+          type: integer
+        price:
+          type: integer
+        sku:
+          type: string
+        barcode:
+          type: string
+        stockQty:
+          type: integer
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    ProductVariantUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        weight:
+          type: string
+        mrp:
+          type: integer
+        price:
+          type: integer
+        sku:
+          type: string
+        barcode:
+          type: string
+        stockQty:
+          type: integer
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
 
     StockToggle:
       type: object

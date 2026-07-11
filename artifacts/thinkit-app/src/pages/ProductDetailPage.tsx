@@ -13,7 +13,7 @@ import { Star, Clock, ShieldCheck, Plus, Minus } from 'lucide-react';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { ProductCard } from './HomePage';
-import { CATEGORY_COLORS, type Product } from '../lib/mockData';
+import { CATEGORY_COLORS, type Product, type ProductVariant } from '../lib/mockData';
 import { useApp } from '../context/AppContext';
 
 interface PagedResponse { items: Product[]; total: number; hasMore: boolean; }
@@ -65,6 +65,11 @@ export default function ProductDetailPage() {
   const similarProducts = useSimilarProducts(product?.categoryId, productId);
   const { cart, addToCart, updateQty } = useApp();
 
+  // Selected pack size — `null` means the product's own base weight/price
+  // (i.e. today's behaviour). Reset whenever a different product loads.
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  useEffect(() => { setSelectedVariant(null); }, [productId]);
+
   if (loading) {
     return (
       <div className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-white flex items-center justify-center">
@@ -75,8 +80,14 @@ export default function ProductDetailPage() {
 
   if (!product) return null;
 
+  const hasVariants = !!product.variants && product.variants.length > 0;
   const effectiveColor = product.color || CATEGORY_COLORS[product.categoryId] || '#e8e8e8';
-  const cartItem = cart.find(c => c.product.id === product.id);
+  const displayWeight = selectedVariant?.weight ?? product.weight;
+  const displayMrp = selectedVariant?.mrp ?? product.mrp;
+  const displayPrice = selectedVariant?.price ?? product.price;
+  const displayInStock = selectedVariant ? selectedVariant.inStock : product.inStock;
+
+  const cartItem = cart.find(c => c.product.id === product.id && (c.variant?.id ?? null) === (selectedVariant?.id ?? null));
   const qty = cartItem ? cartItem.qty : 0;
 
   return (
@@ -120,7 +131,7 @@ export default function ProductDetailPage() {
         <div className="p-5 border-b border-gray-100">
           <p className="text-sm font-semibold text-gray-500 mb-1">{product.brand}</p>
           <h1 className="text-xl font-bold text-gray-900 leading-tight mb-2">{product.name}</h1>
-          <p className="text-sm text-gray-500 mb-4">{product.weight}</p>
+          <p className="text-sm text-gray-500 mb-4">{displayWeight}</p>
 
           <div className="flex items-center gap-2 mb-6">
             <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-bold">
@@ -132,31 +143,50 @@ export default function ProductDetailPage() {
           <div className="flex items-end justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-gray-400 line-through text-sm">₹{product.mrp}</span>
+                <span className="text-gray-400 line-through text-sm">₹{displayMrp}</span>
                 <span className="bg-secondary/20 text-[#B8860B] px-1.5 py-0.5 rounded text-xs font-bold">
-                  Save ₹{product.mrp - product.price}
+                  Save ₹{displayMrp - displayPrice}
                 </span>
               </div>
-              <p className="text-3xl font-bold text-gray-900 leading-none">₹{product.price}</p>
+              <p className="text-3xl font-bold text-gray-900 leading-none">₹{displayPrice}</p>
               <p className="text-[10px] text-gray-400 mt-1">(Inclusive of all taxes)</p>
             </div>
           </div>
         </div>
 
-        {/* Variant selection */}
-        <div className="p-5 border-b border-gray-100">
-          <h3 className="font-semibold text-sm mb-3">Select Variant</h3>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar">
-            <div className="border-2 border-primary bg-primary/5 rounded-xl p-3 min-w-[100px] flex flex-col gap-1 cursor-pointer">
-              <span className="text-xs text-gray-500">{product.weight}</span>
-              <span className="font-bold">₹{product.price}</span>
-            </div>
-            <div className="border border-gray-200 rounded-xl p-3 min-w-[100px] flex flex-col gap-1 cursor-pointer opacity-50">
-              <span className="text-xs text-gray-500">Large Pack</span>
-              <span className="font-bold">₹{product.mrp * 2}</span>
+        {/* Variant selection — only shown when the product has extra pack sizes */}
+        {hasVariants && (
+          <div className="p-5 border-b border-gray-100">
+            <h3 className="font-semibold text-sm mb-3">Select Pack Size</h3>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setSelectedVariant(null)}
+                className={`text-left border-2 rounded-xl p-3 min-w-[100px] flex flex-col gap-1 flex-shrink-0 ${
+                  selectedVariant === null ? 'border-primary bg-primary/5' : 'border-gray-200'
+                }`}
+              >
+                <span className="text-xs text-gray-500">{product.weight}</span>
+                <span className="font-bold">₹{product.price}</span>
+              </button>
+              {product.variants!.map((v) => (
+                <button
+                  type="button"
+                  key={v.id}
+                  onClick={() => v.inStock && setSelectedVariant(v)}
+                  disabled={!v.inStock}
+                  className={`text-left border-2 rounded-xl p-3 min-w-[100px] flex flex-col gap-1 flex-shrink-0 ${
+                    selectedVariant?.id === v.id ? 'border-primary bg-primary/5' : 'border-gray-200'
+                  } ${!v.inStock ? 'opacity-50' : ''}`}
+                >
+                  <span className="text-xs text-gray-500">{v.weight}</span>
+                  <span className="font-bold">₹{v.price}</span>
+                  {!v.inStock && <span className="text-[10px] text-red-500 font-semibold">Out of stock</span>}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
+        )}
 
         {/* Benefits */}
         <div className="p-5 border-b border-gray-100">
@@ -188,13 +218,13 @@ export default function ProductDetailPage() {
 
       {/* Floating Add to Cart */}
       <div className="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto bg-white p-4 border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40">
-        {!product.inStock ? (
+        {!displayInStock ? (
           <button disabled className="w-full h-12 bg-gray-200 text-gray-500 font-bold rounded-xl">
             Out of Stock
           </button>
         ) : qty === 0 ? (
           <button
-            onClick={() => addToCart(product)}
+            onClick={() => addToCart(product, selectedVariant)}
             className="w-full h-12 bg-primary text-white font-bold rounded-xl active:scale-[0.98] transition-transform"
           >
             Add to Cart
@@ -202,14 +232,14 @@ export default function ProductDetailPage() {
         ) : (
           <div className="w-full h-12 bg-primary text-white rounded-xl flex items-center justify-between px-2">
             <button
-              onClick={() => updateQty(product.id, qty - 1)}
+              onClick={() => updateQty(product.id, qty - 1, selectedVariant?.id)}
               className="w-12 h-10 flex items-center justify-center active:bg-black/20 rounded-lg"
             >
               <Minus size={20} />
             </button>
             <span className="font-bold text-lg">{qty} in cart</span>
             <button
-              onClick={() => updateQty(product.id, qty + 1)}
+              onClick={() => updateQty(product.id, qty + 1, selectedVariant?.id)}
               className="w-12 h-10 flex items-center justify-center active:bg-black/20 rounded-lg"
             >
               <Plus size={20} />

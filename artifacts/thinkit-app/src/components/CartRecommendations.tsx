@@ -24,7 +24,8 @@ const CATEGORY_AFFINITY: Record<string, string[]> = {
 // ── Mini product card ─────────────────────────────────────────────────────────
 function RecoCard({ product }: { product: Product }) {
   const { cart, addToCart, updateQty } = useApp();
-  const cartItem = cart.find((c) => c.product.id === product.id);
+  // Recommendation cards always add the base product (no variant selector here).
+  const cartItem = cart.find((c) => c.product.id === product.id && !c.variant);
 
   // Derive bg color from the product's color field or a neutral fallback
   const bgColor = product.color ?? '#e8e8e8';

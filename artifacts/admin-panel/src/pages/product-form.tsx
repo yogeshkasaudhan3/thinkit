@@ -24,6 +24,7 @@ import { useImageUpload } from '@/hooks/useImageUpload';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { adminFetch } from '@/lib/admin-fetch';
+import { ProductVariantsSection } from '@/components/product-variants-section';
 
 // ── Subcategory normalisation (mirrors server logic) ──────────────────────────
 function titleCase(s: string): string {
@@ -580,6 +581,13 @@ export default function ProductForm() {
               />
             </div>
           </SectionCard>
+
+          {/* ── Section 3b: Alternate Pack Sizes (variants) ──────────────── */}
+          {!isNew && productId && (
+            <SectionCard title="Alternate Pack Sizes" description="Optional extra pack sizes shown on the product detail page. The pricing above stays the default option customers see everywhere else.">
+              <ProductVariantsSection productId={productId} />
+            </SectionCard>
+          )}
 
           {/* ── Section 4: Description & Status ──────────────────────────── */}
           <SectionCard title="Description & Status" description="Product description and visibility settings.">
