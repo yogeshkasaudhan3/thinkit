@@ -282,6 +282,82 @@ export const AssignDeliveryPartnerResponse = zod.object({
 
 
 /**
+ * @summary List customer password reset requests
+ */
+export const ListPasswordResetRequestsQueryParams = zod.object({
+  "status": zod.coerce.string().optional().describe('Filter by status (pending, completed, rejected)')
+})
+
+export const ListPasswordResetRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "customerName": zod.string(),
+  "customerMobile": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+export const ListPasswordResetRequestsResponse = zod.array(ListPasswordResetRequestsResponseItem)
+
+
+/**
+ * @summary Generate and assign a temporary password for the requesting customer
+ */
+export const GenerateTempPasswordParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GenerateTempPasswordResponse = zod.object({
+  "request": zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "customerName": zod.string(),
+  "customerMobile": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+}),
+  "temporaryPassword": zod.string().describe('One-time plaintext temporary password shown only to the admin at generation time. Never returned again by any endpoint.')
+})
+
+
+/**
+ * @summary Manually mark a password reset request as completed
+ */
+export const CompletePasswordResetRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CompletePasswordResetRequestResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "customerName": zod.string(),
+  "customerMobile": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Reject a password reset request and invalidate any issued temporary password
+ */
+export const RejectPasswordResetRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectPasswordResetRequestResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "customerName": zod.string(),
+  "customerMobile": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+
+
+/**
  * @summary List products with optional search/filter
  */
 export const ListAdminProductsQueryParams = zod.object({

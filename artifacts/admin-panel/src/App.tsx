@@ -14,6 +14,7 @@ import Banners from '@/pages/banners';
 import Categories from '@/pages/categories';
 import Settings from '@/pages/settings';
 import InventorySync from '@/pages/inventory-sync';
+import PasswordResetRequests from '@/pages/password-reset-requests';
 
 import { AdminLayout } from '@/components/layout/admin-layout';
 import { AuthGuard, clearAuthCache } from '@/components/auth-guard';
@@ -79,6 +80,7 @@ function AuthenticatedRoutes() {
           <Route path="/categories" component={Categories} />
           <Route path="/settings" component={Settings} />
           <Route path="/inventory-sync" component={InventorySync} />
+          <Route path="/password-reset-requests" component={PasswordResetRequests} />
           <Route component={NotFound} />
         </Switch>
       </AdminLayout>

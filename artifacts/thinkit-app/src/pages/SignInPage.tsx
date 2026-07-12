@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Phone, Lock, User, Home, MapPin, Hash, UserPlus, AlertCircle, MessageCircle } from 'lucide-react';
+import { Eye, EyeOff, Phone, Lock, User, Home, MapPin, Hash, UserPlus, AlertCircle, MessageCircle, KeyRound } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { useStoreSettings, toPhoneDigits } from '../lib/useStoreSettings';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 
 type Tab = 'login' | 'signup';
 
@@ -51,6 +54,47 @@ export default function SignInPage() {
   const [signup, setSignup] = useState<SignupForm>(INITIAL_SIGNUP);
   const [forgotOpen, setForgotOpen] = useState(false);
   const { settings } = useStoreSettings();
+
+  // ── Forgot password (manual admin reset request) ────────────────────────────
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetMobile, setResetMobile] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+
+  const openResetDialog = () => {
+    setResetMobile('');
+    setResetMessage(null);
+    setResetDialogOpen(true);
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{10}$/.test(resetMobile.trim())) {
+      toastError('Enter a valid 10-digit mobile number');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ mobile: resetMobile.trim() }),
+      });
+      const data = await res.json();
+      setResetMessage(
+        data.message ??
+          'If this mobile number is registered, your password reset request has been submitted. Our support team will contact you shortly.'
+      );
+    } catch {
+      // Still show the generic message — never leak whether the request reached the server for a specific mobile.
+      setResetMessage(
+        'If this mobile number is registered, your password reset request has been submitted. Our support team will contact you shortly.'
+      );
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const toastError = (msg: string) => toast({ title: msg, duration: 3000 });
 
@@ -323,6 +367,14 @@ export default function SignInPage() {
                 Forgot password?{' '}
                 <button
                   type="button"
+                  onClick={openResetDialog}
+                  className="text-primary font-semibold underline underline-offset-2"
+                >
+                  Reset it
+                </button>
+                {' · '}
+                <button
+                  type="button"
                   onClick={() => setForgotOpen((o) => !o)}
                   className="text-primary font-semibold underline underline-offset-2"
                 >
@@ -457,6 +509,51 @@ export default function SignInPage() {
 
         </AnimatePresence>
       </div>
+
+      {/* Forgot Password dialog */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="max-w-[340px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <KeyRound size={18} /> Forgot Password
+            </DialogTitle>
+          </DialogHeader>
+
+          {resetMessage ? (
+            <p className="text-sm text-gray-600 leading-snug py-2">{resetMessage}</p>
+          ) : (
+            <form onSubmit={handleForgotPasswordSubmit} className="flex flex-col gap-4 py-1">
+              <Field
+                icon={<Phone size={18} />}
+                label="Registered Mobile Number"
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="10-digit mobile number"
+                value={resetMobile}
+                onChange={setResetMobile}
+              />
+              <button
+                type="submit"
+                disabled={resetLoading}
+                className="w-full bg-primary text-white font-bold py-3 rounded-xl disabled:opacity-60 active:scale-[0.98] transition-all"
+              >
+                {resetLoading ? 'Submitting…' : 'Submit Request'}
+              </button>
+            </form>
+          )}
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setResetDialogOpen(false)}
+              className="w-full text-center text-sm text-gray-400 font-medium"
+            >
+              Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

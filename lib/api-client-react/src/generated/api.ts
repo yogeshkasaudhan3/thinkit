@@ -30,11 +30,14 @@ import type {
   BulkImportResult,
   DashboardStats,
   DeliveryPartnerInput,
+  GenerateTempPasswordResult,
   HealthStatus,
   ListAdminOrdersParams,
   ListAdminProductsParams,
+  ListPasswordResetRequestsParams,
   Order,
   OrderStatusUpdate,
+  PasswordResetRequest,
   ProductInput,
   ProductUpdate,
   ProductVariant,
@@ -745,6 +748,300 @@ export const useAssignDeliveryPartner = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getAssignDeliveryPartnerMutationOptions(options));
+    }
+
+export const getListPasswordResetRequestsUrl = (params?: ListPasswordResetRequestsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/password-reset-requests?${stringifiedParams}` : `/api/admin/password-reset-requests`
+}
+
+/**
+ * @summary List customer password reset requests
+ */
+export const listPasswordResetRequests = async (params?: ListPasswordResetRequestsParams, options?: RequestInit): Promise<PasswordResetRequest[]> => {
+
+  return customFetch<PasswordResetRequest[]>(getListPasswordResetRequestsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPasswordResetRequestsQueryKey = (params?: ListPasswordResetRequestsParams,) => {
+    return [
+    `/api/admin/password-reset-requests`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPasswordResetRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listPasswordResetRequests>>, TError = ErrorType<unknown>>(params?: ListPasswordResetRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPasswordResetRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPasswordResetRequestsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPasswordResetRequests>>> = ({ signal }) => listPasswordResetRequests(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPasswordResetRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPasswordResetRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listPasswordResetRequests>>>
+export type ListPasswordResetRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List customer password reset requests
+ */
+
+export function useListPasswordResetRequests<TData = Awaited<ReturnType<typeof listPasswordResetRequests>>, TError = ErrorType<unknown>>(
+ params?: ListPasswordResetRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPasswordResetRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPasswordResetRequestsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGenerateTempPasswordUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/password-reset-requests/${id}/generate-temp-password`
+}
+
+/**
+ * @summary Generate and assign a temporary password for the requesting customer
+ */
+export const generateTempPassword = async (id: number, options?: RequestInit): Promise<GenerateTempPasswordResult> => {
+
+  return customFetch<GenerateTempPasswordResult>(getGenerateTempPasswordUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getGenerateTempPasswordMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateTempPassword>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateTempPassword>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['generateTempPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateTempPassword>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  generateTempPassword(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateTempPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof generateTempPassword>>>
+
+    export type GenerateTempPasswordMutationError = ErrorType<void>
+
+    /**
+ * @summary Generate and assign a temporary password for the requesting customer
+ */
+export const useGenerateTempPassword = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateTempPassword>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateTempPassword>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getGenerateTempPasswordMutationOptions(options));
+    }
+
+export const getCompletePasswordResetRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/password-reset-requests/${id}/complete`
+}
+
+/**
+ * @summary Manually mark a password reset request as completed
+ */
+export const completePasswordResetRequest = async (id: number, options?: RequestInit): Promise<PasswordResetRequest> => {
+
+  return customFetch<PasswordResetRequest>(getCompletePasswordResetRequestUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getCompletePasswordResetRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completePasswordResetRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completePasswordResetRequest>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['completePasswordResetRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completePasswordResetRequest>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  completePasswordResetRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompletePasswordResetRequestMutationResult = NonNullable<Awaited<ReturnType<typeof completePasswordResetRequest>>>
+
+    export type CompletePasswordResetRequestMutationError = ErrorType<void>
+
+    /**
+ * @summary Manually mark a password reset request as completed
+ */
+export const useCompletePasswordResetRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completePasswordResetRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completePasswordResetRequest>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCompletePasswordResetRequestMutationOptions(options));
+    }
+
+export const getRejectPasswordResetRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/password-reset-requests/${id}/reject`
+}
+
+/**
+ * @summary Reject a password reset request and invalidate any issued temporary password
+ */
+export const rejectPasswordResetRequest = async (id: number, options?: RequestInit): Promise<PasswordResetRequest> => {
+
+  return customFetch<PasswordResetRequest>(getRejectPasswordResetRequestUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRejectPasswordResetRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectPasswordResetRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectPasswordResetRequest>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['rejectPasswordResetRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectPasswordResetRequest>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  rejectPasswordResetRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectPasswordResetRequestMutationResult = NonNullable<Awaited<ReturnType<typeof rejectPasswordResetRequest>>>
+
+    export type RejectPasswordResetRequestMutationError = ErrorType<void>
+
+    /**
+ * @summary Reject a password reset request and invalidate any issued temporary password
+ */
+export const useRejectPasswordResetRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectPasswordResetRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectPasswordResetRequest>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRejectPasswordResetRequestMutationOptions(options));
     }
 
 export const getListAdminProductsUrl = (params?: ListAdminProductsParams,) => {

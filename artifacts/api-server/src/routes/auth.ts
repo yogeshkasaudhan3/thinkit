@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, addressesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, usersTable, addressesTable, passwordResetRequestsTable } from "@workspace/db";
+import { eq, sql, and } from "drizzle-orm";
 import { requireAuth, type AuthUser } from "../middleware/requireAuth";
 
 const router = Router();
@@ -83,7 +83,16 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
     return;
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  // Accept either the permanent password, or — if one was issued by an admin
+  // via the manual password-reset flow — the temporary password. Logging in
+  // with the temporary password is still allowed even though it does not
+  // change the account's permanent password; the client is forced to the
+  // "create new password" screen (via forcePasswordChange) before it can do
+  // anything else.
+  let valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid && user.temporaryPasswordHash) {
+    valid = await bcrypt.compare(password, user.temporaryPasswordHash);
+  }
   if (!valid) {
     res.status(401).json({ code: "WRONG_PASSWORD", error: "Incorrect password. Please try again." });
     return;
@@ -113,7 +122,80 @@ router.get("/auth/me", requireAuth, async (_req: Request, res: Response): Promis
     authenticated: true,
     user: { id: user.id, name: user.name, mobile: user.mobile },
     address: address ?? null,
+    forcePasswordChange: user.forcePasswordChange,
   });
+});
+
+// ─── Forgot Password (manual admin reset request) ─────────────────────────────
+// The response is ALWAYS identical regardless of whether the mobile number
+// is registered, to avoid leaking account existence.
+const FORGOT_PASSWORD_MESSAGE =
+  "If this mobile number is registered, your password reset request has been submitted. Our support team will contact you shortly.";
+
+router.post("/auth/forgot-password", async (req: Request, res: Response): Promise<void> => {
+  const { mobile } = req.body as Record<string, string | undefined>;
+
+  if (!mobile?.trim() || !/^\d{10}$/.test(mobile.trim())) {
+    // Still return the generic message — never confirm/deny format-level issues either.
+    res.json({ message: FORGOT_PASSWORD_MESSAGE });
+    return;
+  }
+
+  const [user] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.mobile, mobile.trim()));
+
+  if (user) {
+    const [existingPending] = await db
+      .select({ id: passwordResetRequestsTable.id })
+      .from(passwordResetRequestsTable)
+      .where(and(eq(passwordResetRequestsTable.userId, user.id), eq(passwordResetRequestsTable.status, "pending")));
+
+    if (!existingPending) {
+      await db.insert(passwordResetRequestsTable).values({ userId: user.id });
+    }
+
+    await db
+      .update(usersTable)
+      .set({ passwordResetRequestedAt: new Date() })
+      .where(eq(usersTable.id, user.id));
+  }
+
+  res.json({ message: FORGOT_PASSWORD_MESSAGE });
+});
+
+// ─── Create New Password (after logging in with a temporary password) ─────────
+router.post("/auth/change-forced-password", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const authUser = res.locals.user as AuthUser;
+  const { newPassword, confirmPassword } = req.body as Record<string, string | undefined>;
+
+  if (!authUser.forcePasswordChange) {
+    res.status(400).json({ error: "No password change is required for this account." });
+    return;
+  }
+  if (!newPassword || newPassword.length < 6) {
+    res.status(400).json({ error: "Password must be at least 6 characters" });
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    res.status(400).json({ error: "Passwords do not match" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await db
+    .update(usersTable)
+    .set({ passwordHash, temporaryPasswordHash: null, forcePasswordChange: false })
+    .where(eq(usersTable.id, authUser.id));
+
+  await db
+    .update(passwordResetRequestsTable)
+    .set({ status: "completed", resolvedAt: new Date() })
+    .where(and(eq(passwordResetRequestsTable.userId, authUser.id), eq(passwordResetRequestsTable.status, "pending")));
+
+  res.json({ success: true });
 });
 
 // ─── Update Address ───────────────────────────────────────────────────────────

@@ -9,3 +9,4 @@ export * from "./admin-users";
 export * from "./inventory-sync-logs";
 export * from "./subcategory-definitions";
 export * from "./product-variants";
+export * from "./password-reset-requests";

@@ -9,6 +9,7 @@ import categoriesRouter from "./categories";
 import settingsRouter from "./settings";
 import inventorySyncRouter from "./inventory-sync";
 import subcategoriesRouter from "./subcategories";
+import passwordResetRequestsRouter from "./password-reset-requests";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(categoriesRouter);
 router.use(subcategoriesRouter);
 router.use(settingsRouter);
 router.use(inventorySyncRouter);
+router.use(passwordResetRequestsRouter);
 
 export default router;

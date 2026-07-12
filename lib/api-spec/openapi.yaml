@@ -16,6 +16,8 @@ tags:
     description: Admin dashboard
   - name: admin-orders
     description: Order management
+  - name: admin-password-reset
+    description: Manual customer password reset requests
   - name: admin-products
     description: Product management
   - name: admin-product-variants
@@ -200,6 +202,91 @@ paths:
                 $ref: "#/components/schemas/Order"
         "404":
           description: Order not found
+
+  # ── Admin Password Reset Requests (manual, temporary) ───────────────────────
+  /admin/password-reset-requests:
+    get:
+      operationId: listPasswordResetRequests
+      tags: [admin-password-reset]
+      summary: List customer password reset requests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filter by status (pending, completed, rejected)
+      responses:
+        "200":
+          description: List of password reset requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PasswordResetRequest"
+
+  /admin/password-reset-requests/{id}/generate-temp-password:
+    post:
+      operationId: generateTempPassword
+      tags: [admin-password-reset]
+      summary: Generate and assign a temporary password for the requesting customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Temporary password generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateTempPasswordResult"
+        "404":
+          description: Request not found
+
+  /admin/password-reset-requests/{id}/complete:
+    post:
+      operationId: completePasswordResetRequest
+      tags: [admin-password-reset]
+      summary: Manually mark a password reset request as completed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetRequest"
+        "404":
+          description: Request not found
+
+  /admin/password-reset-requests/{id}/reject:
+    post:
+      operationId: rejectPasswordResetRequest
+      tags: [admin-password-reset]
+      summary: Reject a password reset request and invalidate any issued temporary password
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetRequest"
+        "404":
+          description: Request not found
 
   # ── Admin Products ────────────────────────────────────────────────────────────
   /admin/products:
@@ -717,6 +804,36 @@ components:
           type: ["string", "null"]
         vehicleNumber:
           type: ["string", "null"]
+
+    # ── Password Reset Request schemas (manual, temporary) ─────────────────────
+    PasswordResetRequest:
+      type: object
+      required: [id, userId, customerName, customerMobile, status, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        customerName:
+          type: string
+        customerMobile:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+        resolvedAt:
+          type: ["string", "null"]
+
+    GenerateTempPasswordResult:
+      type: object
+      required: [request, temporaryPassword]
+      properties:
+        request:
+          $ref: "#/components/schemas/PasswordResetRequest"
+        temporaryPassword:
+          type: string
+          description: One-time plaintext temporary password shown only to the admin at generation time. Never returned again by any endpoint.
 
     # ── Product schemas ─────────────────────────────────────────────────────────
     AdminProduct:

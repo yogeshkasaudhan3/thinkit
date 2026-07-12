@@ -44,6 +44,10 @@ interface AppContextType {
   authUser: AuthUser | null;
   userAddress: UserAddress | null;
   isLoggedIn: boolean;
+  // True when the customer logged in with a temporary password issued by an
+  // admin (manual password reset) and must set a new permanent password
+  // before using the rest of the app.
+  forcePasswordChange: boolean;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
   updateAddress: (addr: Omit<UserAddress, 'id'>) => Promise<void>;
@@ -77,6 +81,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [userAddress, setUserAddress] = useState<UserAddress | null>(null);
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -103,15 +108,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         setAuthUser(data.user);
         setUserAddress(data.address ?? null);
+        setForcePasswordChange(Boolean(data.forcePasswordChange));
         setAuthStatus('authenticated');
       } else {
         setAuthUser(null);
         setUserAddress(null);
+        setForcePasswordChange(false);
         setAuthStatus('unauthenticated');
       }
     } catch {
       setAuthUser(null);
       setUserAddress(null);
+      setForcePasswordChange(false);
       setAuthStatus('unauthenticated');
     }
   }, []);
@@ -141,6 +149,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     setAuthUser(null);
     setUserAddress(null);
+    setForcePasswordChange(false);
     setAuthStatus('unauthenticated');
     setCart([]);
     localStorage.removeItem('thinkit_cart');
@@ -202,7 +211,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        authStatus, authUser, userAddress, isLoggedIn, refreshAuth, logout, updateAddress,
+        authStatus, authUser, userAddress, isLoggedIn, forcePasswordChange, refreshAuth, logout, updateAddress,
         user, setUser,
         cart, addToCart, removeFromCart, updateQty, clearCart, cartTotal, cartCount,
         paymentMethod, setPaymentMethod, orderNote, setOrderNote,

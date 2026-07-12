@@ -91,6 +91,23 @@ export interface DeliveryPartnerInput {
   vehicleNumber?: string | null;
 }
 
+export interface PasswordResetRequest {
+  id: number;
+  userId: number;
+  customerName: string;
+  customerMobile: string;
+  status: string;
+  createdAt: string;
+  /** @nullable */
+  resolvedAt?: string | null;
+}
+
+export interface GenerateTempPasswordResult {
+  request: PasswordResetRequest;
+  /** One-time plaintext temporary password shown only to the admin at generation time. Never returned again by any endpoint. */
+  temporaryPassword: string;
+}
+
 export interface AdminProduct {
   id: number;
   name: string;
@@ -278,6 +295,13 @@ status?: string;
  * Filter by date (YYYY-MM-DD)
  */
 date?: string;
+};
+
+export type ListPasswordResetRequestsParams = {
+/**
+ * Filter by status (pending, completed, rejected)
+ */
+status?: string;
 };
 
 export type ListAdminProductsParams = {

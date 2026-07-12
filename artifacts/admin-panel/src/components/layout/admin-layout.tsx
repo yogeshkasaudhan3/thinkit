@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   Settings,
   RefreshCw,
+  KeyRound,
 } from 'lucide-react';
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { name: 'Products', path: '/products', icon: Package },
   { name: 'Categories', path: '/categories', icon: LayoutGrid },
   { name: 'Banners', path: '/banners', icon: ImageIcon },
+  { name: 'Password Reset Requests', path: '/password-reset-requests', icon: KeyRound },
   { name: 'Inventory Sync', path: '/inventory-sync', icon: RefreshCw },
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
