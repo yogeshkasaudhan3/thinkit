@@ -69,6 +69,13 @@ app.use(
 
 app.use("/api", router);
 
+// Any /api/* path not matched by a route above is a genuine 404 — return
+// JSON, not HTML. Without this, an unmatched API path would otherwise fall
+// through to the SPA static-file catch-all below and silently serve HTML.
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+
 // ─── Optional same-origin admin panel static hosting ──────────────────────
 // On Replit, the admin panel is served separately by the artifact router.
 // On single-origin deployments (e.g. Hostinger), that router doesn't exist,
@@ -90,6 +97,22 @@ if (fs.existsSync(adminPanelDir)) {
   // index.html. Express 5 (path-to-regexp v6+) requires a named wildcard.
   app.get("/admin-panel/*splat", (_req, res) => {
     res.sendFile(path.join(adminPanelDir, "index.html"));
+  });
+}
+
+// ─── Optional same-origin customer app static hosting ─────────────────────
+// Same rationale as the admin panel block above: the customer app (thinkit-app)
+// also calls the API via relative "/api/..." paths, so on a single-origin
+// deployment it must be served from this same Express app, mounted at "/".
+// Must be registered LAST (after /api and /admin-panel) since it's a
+// catch-all SPA fallback for every other path.
+const thinkitAppDir = path.join(path.dirname(thisFilename), "thinkit-app-dist");
+
+if (fs.existsSync(thinkitAppDir)) {
+  logger.info({ thinkitAppDir }, "Serving thinkit-app from this origin");
+  app.use(express.static(thinkitAppDir));
+  app.get("/*splat", (_req, res) => {
+    res.sendFile(path.join(thinkitAppDir, "index.html"));
   });
 }
 

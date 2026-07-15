@@ -17,3 +17,4 @@
 - [Product variants pattern](product-variants-pattern.md) — variants are additive alt pack sizes, never replace base fields; cart id encodes variant suffix; grep orval-generated names, don't guess
 - [Manual password reset pattern](manual-password-reset.md) — mobile-based forgot-password, admin-verified temp password, generic response always, forcePasswordChange gates client routing
 - [Supabase migration cutover](supabase-migration-cutover.md) — Supabase direct connection is IPv6-only (unreachable from Replit); use Session Pooler; DATABASE_URL is runtime-managed, can't be reassigned
+- [Hostinger same-origin deploy](hostinger-same-origin-deploy.md) — admin-panel + thinkit-app both use relative /api paths, must be served from same Express origin as backend on Hostinger; Express 5 wildcard needs a name (`/*splat`)
