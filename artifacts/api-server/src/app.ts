@@ -3,6 +3,9 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -65,6 +68,30 @@ app.use(
 );
 
 app.use("/api", router);
+
+// ─── Optional same-origin admin panel static hosting ──────────────────────
+// On Replit, the admin panel is served separately by the artifact router.
+// On single-origin deployments (e.g. Hostinger), that router doesn't exist,
+// and the admin panel's own code calls the API via relative "/api/..."
+// paths, so it must be served from this same Express app/origin instead.
+//
+// This activates only if an "admin-panel-dist" directory sits next to this
+// server's own entry file (see scripts/build-hostinger.mjs). In every other
+// environment (including local Replit dev/build) that directory is absent
+// and this block is a no-op.
+const thisFilename =
+  (globalThis as { __filename?: string }).__filename ?? fileURLToPath(import.meta.url);
+const adminPanelDir = path.join(path.dirname(thisFilename), "admin-panel-dist");
+
+if (fs.existsSync(adminPanelDir)) {
+  logger.info({ adminPanelDir }, "Serving admin panel from this origin");
+  app.use("/admin-panel", express.static(adminPanelDir));
+  // SPA fallback: any non-API, non-asset admin-panel route resolves to
+  // index.html. Express 5 (path-to-regexp v6+) requires a named wildcard.
+  app.get("/admin-panel/*splat", (_req, res) => {
+    res.sendFile(path.join(adminPanelDir, "index.html"));
+  });
+}
 
 // Global error handler — must be registered last, after all routes.
 // Logs the full error server-side and returns a sanitized message to the client.
