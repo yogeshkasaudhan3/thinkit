@@ -5,6 +5,7 @@ import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { useApp } from '../context/AppContext';
 import CartRecommendations from '../components/CartRecommendations';
+import CartItemImage from '../components/CartItemImage';
 import { useStoreSettings } from '../lib/useStoreSettings';
 
 export default function CartPage() {
@@ -69,32 +70,27 @@ export default function CartPage() {
         {/* Cart Items */}
         <div className="bg-white mt-2 border-y border-gray-100">
           {cart.map((item) => (
-            <div key={item.id} className="p-4 flex gap-4 border-b border-gray-50 last:border-0">
-              <div 
-                className="w-16 h-16 rounded-lg border border-gray-100 flex items-center justify-center relative flex-shrink-0"
-                style={{ backgroundColor: `${item.product.color}20` }}
-              >
-                <div 
-                  className="w-10 h-10 rounded-full shadow-inner flex items-center justify-center text-[8px] font-bold border-2 border-white"
-                  style={{ backgroundColor: item.product.color }}
-                >
-                  {item.product.brand}
-                </div>
-              </div>
-              
-              <div className="flex-1 flex flex-col">
-                <div className="flex justify-between items-start mb-1">
-                  <h3 className="text-sm font-semibold text-gray-900 leading-tight pr-2">{item.product.name}</h3>
-                  <button onClick={() => removeFromCart(item.id)} className="text-gray-400 hover:text-red-500 p-1 -mr-1">
+            <div key={item.id} className="p-4 flex gap-3 sm:gap-4 border-b border-gray-50 last:border-0">
+              <CartItemImage
+                imageUrl={item.product.imageUrl}
+                name={item.product.name}
+                brand={item.product.brand}
+                size={64}
+              />
+
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex justify-between items-start mb-1 gap-2">
+                  <h3 className="text-sm font-semibold text-gray-900 leading-tight pr-2 line-clamp-2">{item.product.name}</h3>
+                  <button onClick={() => removeFromCart(item.id)} className="text-gray-400 hover:text-red-500 p-1 -mr-1 shrink-0">
                     <Trash2 size={16} />
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mb-2">{item.variant?.weight ?? item.product.weight}</p>
                 
-                <div className="mt-auto flex items-center justify-between">
+                <div className="mt-auto flex items-center justify-between flex-wrap gap-2">
                   <p className="font-bold text-gray-900">₹{item.variant?.price ?? item.product.price}</p>
                   
-                  <div className="flex items-center bg-primary text-white rounded-lg h-8 w-[80px]">
+                  <div className="flex items-center bg-primary text-white rounded-lg h-8 w-[80px] shrink-0">
                     <button onClick={() => updateQty(item.id, item.qty - 1)} className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-l-lg">
                       <Minus size={14} />
                     </button>

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { MapPin, Phone, Lock, Edit3, CheckCircle2 } from 'lucide-react';
 import AppHeader from '../components/AppHeader';
 import { useApp } from '../context/AppContext';
+import CartItemImage from '../components/CartItemImage';
 import { useStoreSettings } from '../lib/useStoreSettings';
 
 export default function CheckoutPage() {
@@ -134,11 +135,20 @@ export default function CheckoutPage() {
           <div className="space-y-3 mb-4">
             {cart.map(item => {
               const unitPrice = item.variant?.price ?? item.product.price;
-              const label = item.variant ? `${item.product.name} (${item.variant.weight})` : item.product.name;
+              const weight = item.variant?.weight ?? item.product.weight;
               return (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span className="text-gray-600 line-clamp-1 pr-4">{item.qty} x {label}</span>
-                  <span className="font-medium text-gray-900 shrink-0">₹{item.qty * unitPrice}</span>
+                <div key={item.id} className="flex items-center gap-3">
+                  <CartItemImage
+                    imageUrl={item.product.imageUrl}
+                    name={item.product.name}
+                    brand={item.product.brand}
+                    size={44}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 font-medium leading-tight line-clamp-1">{item.product.name}</p>
+                    <p className="text-xs text-gray-500">{item.qty} x ₹{unitPrice}{weight ? ` · ${weight}` : ''}</p>
+                  </div>
+                  <span className="font-medium text-gray-900 shrink-0 text-sm">₹{item.qty * unitPrice}</span>
                 </div>
               );
             })}
