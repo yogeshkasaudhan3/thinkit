@@ -2,7 +2,6 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import adminRouter from "./admin";
-import storageRouter from "./storage";
 import productsRouter from "./products";
 import ordersRouter from "./orders";
 import bannersRouter from "./banners";
@@ -21,7 +20,6 @@ router.use(bannersRouter);
 router.use(categoriesRouter);
 router.use(settingsRouter);
 router.use(adminRouter);
-router.use(storageRouter);
 router.use(vyaparImportRouter);
 router.use(imagesRouter);
 

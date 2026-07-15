@@ -32,5 +32,3 @@ export * from './productVariant';
 export * from './productVariantInput';
 export * from './productVariantUpdate';
 export * from './stockToggle';
-export * from './uploadUrlRequest';
-export * from './uploadUrlResponse';

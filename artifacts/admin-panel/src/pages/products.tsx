@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useSearch } from 'wouter';
 import {
   Search, Plus, Upload, Loader2, Package, Pencil, MoreVertical,
-  X, ChevronLeft, ChevronRight, Zap, TrendingDown, Sparkles, CheckCircle2, AlertCircle,
+  X, ChevronLeft, ChevronRight, Zap, TrendingDown,
   Tag, CheckSquare, AlertTriangle,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -267,40 +267,6 @@ export default function Products() {
   const [bulkAssignSubcat, setBulkAssignSubcat] = useState('');
   const [bulkAssigning, setBulkAssigning]     = useState(false);
 
-  // ── Bulk image optimization ───────────────────────────────────────────────
-
-  const [bulkOptOpen, setBulkOptOpen]   = useState(false);
-  const [bulkOptRunning, setBulkOptRunning] = useState(false);
-  const [bulkOptResult, setBulkOptResult] = useState<{
-    batchSize: number; lastProcessedId: number; remaining: number;
-    processed: number; skipped: number; failed: number;
-    errors: string[]; done: boolean;
-  } | null>(null);
-  // Cumulative totals across multiple "Run Again" calls
-  const [bulkOptTotals, setBulkOptTotals] = useState({ processed: 0, skipped: 0, failed: 0 });
-
-  const runBulkOptimize = useCallback(async (afterId = 0, isFirstRun = true) => {
-    setBulkOptRunning(true);
-    if (isFirstRun) setBulkOptResult(null);
-    try {
-      type BulkResult = typeof bulkOptResult;
-      const data = await adminFetch<NonNullable<BulkResult>>('/api/admin/products/bulk-optimize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ afterId }),
-      });
-      setBulkOptResult(data);
-      setBulkOptTotals(prev => isFirstRun
-        ? { processed: data.processed, skipped: data.skipped, failed: data.failed }
-        : { processed: prev.processed + data.processed, skipped: prev.skipped + data.skipped, failed: prev.failed + data.failed }
-      );
-    } catch {
-      toast({ title: 'Bulk optimization failed', variant: 'destructive' });
-    } finally {
-      setBulkOptRunning(false);
-    }
-  }, [toast]);
-
   // ── Quick edit ────────────────────────────────────────────────────────────
 
   const [quickEditProduct, setQuickEditProduct] = useState<AdminProduct | null>(null);
@@ -471,9 +437,6 @@ export default function Products() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Products</h1>
         <div className="flex gap-2 w-full sm:w-auto flex-wrap">
-          <Button variant="outline" onClick={() => { setBulkOptOpen(true); setBulkOptResult(null); }} className="flex-1 sm:flex-none">
-            <Sparkles className="mr-2 h-4 w-4" /> Optimize Images
-          </Button>
           <Button variant="outline" asChild className="flex-1 sm:flex-none">
             <Link href="/products/bulk"><Upload className="mr-2 h-4 w-4" /> Bulk Import</Link>
           </Button>
@@ -906,103 +869,6 @@ export default function Products() {
         onSaved={invalidateAll}
       />
 
-      {/* ── Bulk Image Optimize Dialog ─────────────────────────────────────── */}
-      <Dialog open={bulkOptOpen} onOpenChange={setBulkOptOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" /> Bulk Optimize Images
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {!bulkOptResult && !bulkOptRunning && (
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>This will process up to <strong>100 product images</strong> per run:</p>
-                <ul className="list-disc list-inside space-y-1 ml-1">
-                  <li>Resize to ≤ 600 × 600 px</li>
-                  <li>Convert to WebP at quality 85</li>
-                  <li>Strip EXIF / GPS metadata</li>
-                </ul>
-                <p className="text-xs">Already-optimised images are skipped automatically. Run again if more than 100 need processing.</p>
-              </div>
-            )}
-
-            {bulkOptRunning && (
-              <div className="flex flex-col items-center gap-3 py-6">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Processing images… this may take a minute.</p>
-              </div>
-            )}
-
-            {bulkOptResult && (
-              <div className="space-y-3">
-                {/* Cumulative totals across all runs */}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-center">
-                    <div className="text-2xl font-bold text-emerald-700">{bulkOptTotals.processed}</div>
-                    <div className="text-xs text-emerald-600 font-medium mt-0.5">Optimised</div>
-                  </div>
-                  <div className="bg-muted border border-border rounded-lg p-3 text-center">
-                    <div className="text-2xl font-bold text-foreground">{bulkOptTotals.skipped}</div>
-                    <div className="text-xs text-muted-foreground font-medium mt-0.5">Already OK</div>
-                  </div>
-                  {bulkOptTotals.failed > 0 && (
-                    <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 text-center col-span-2">
-                      <div className="text-2xl font-bold text-destructive">{bulkOptTotals.failed}</div>
-                      <div className="text-xs text-destructive/80 font-medium mt-0.5">Failed</div>
-                    </div>
-                  )}
-                </div>
-
-                {!bulkOptResult.done && bulkOptResult.remaining > 0 && (
-                  <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span><strong>{bulkOptResult.remaining}</strong> more images remaining — click Continue.</span>
-                  </div>
-                )}
-
-                {bulkOptResult.done && bulkOptTotals.failed === 0 && (
-                  <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg p-3">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>All product images are now optimised!</span>
-                  </div>
-                )}
-
-                {bulkOptResult.errors.length > 0 && (
-                  <details className="text-xs text-muted-foreground">
-                    <summary className="cursor-pointer hover:text-foreground">Show errors ({bulkOptResult.errors.length})</summary>
-                    <ul className="mt-2 space-y-1 list-disc list-inside ml-1">
-                      {bulkOptResult.errors.map((e, i) => <li key={i}>{e}</li>)}
-                    </ul>
-                  </details>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setBulkOptOpen(false)} disabled={bulkOptRunning}>Close</Button>
-            {(!bulkOptResult || !bulkOptResult.done) && (
-              <Button
-                onClick={() => {
-                  const afterId = bulkOptResult?.lastProcessedId ?? 0;
-                  const isFirst = !bulkOptResult;
-                  runBulkOptimize(afterId, isFirst);
-                }}
-                disabled={bulkOptRunning}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                {bulkOptRunning
-                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</>
-                  : bulkOptResult
-                    ? <><Sparkles className="mr-2 h-4 w-4" /> Continue ({bulkOptResult.remaining} left)</>
-                    : <><Sparkles className="mr-2 h-4 w-4" /> Start Optimization</>}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useUpload } from '@workspace/object-storage-web';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -173,7 +173,7 @@ function SubcategoryRow({
   onUpdate: (id: number, data: { name?: string; imageUrl?: string | null }) => void;
   onDelete: (sub: SubcategoryDefinition) => void;
 }) {
-  const { uploadFile, isUploading, progress } = useUpload();
+  const { uploadImage, isUploading, progress } = useImageUpload();
   const fileRef = useRef<HTMLInputElement>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(sub.name);
@@ -182,8 +182,8 @@ function SubcategoryRow({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const result = await uploadFile(file);
-    if (result) onUpdate(sub.id, { imageUrl: `/api/storage${result.objectPath}` });
+    const result = await uploadImage(file);
+    if (result) onUpdate(sub.id, { imageUrl: result.imageUrl });
   };
 
   const saveName = () => {
@@ -409,7 +409,7 @@ function CategoryDialog({
   isSaving: boolean;
 }) {
   const [form, setForm] = useState<CategoryFormData>(initial);
-  const { uploadFile, isUploading, progress } = useUpload();
+  const { uploadImage, isUploading, progress } = useImageUpload();
 
   const [lastInitial, setLastInitial] = useState(initial);
   if (initial !== lastInitial) {
@@ -499,8 +499,8 @@ function CategoryDialog({
                   const file = e.target.files?.[0];
                   e.target.value = '';
                   if (!file) return;
-                  const result = await uploadFile(file);
-                  if (result) set('imageUrl', `/api/storage${result.objectPath}`);
+                  const result = await uploadImage(file);
+                  if (result) set('imageUrl', result.imageUrl);
                 }}
               />
             </div>
