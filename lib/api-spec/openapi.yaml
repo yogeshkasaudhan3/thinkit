@@ -14,6 +14,8 @@ tags:
     description: Admin authentication
   - name: admin-dashboard
     description: Admin dashboard
+  - name: admin-reports
+    description: Sales reports and analytics
   - name: admin-orders
     description: Order management
   - name: admin-password-reset
@@ -98,6 +100,88 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardStats"
+
+  # ── Admin Reports ─────────────────────────────────────────────────────────────
+  /admin/reports/summary:
+    get:
+      operationId: getAdminReportsSummary
+      tags: [admin-reports]
+      summary: Get sales summary + order status breakdown for a date range
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Start date (YYYY-MM-DD), inclusive
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+          description: End date (YYYY-MM-DD), inclusive
+      responses:
+        "200":
+          description: Sales summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportsSummary"
+
+  /admin/reports/daily-sales:
+    get:
+      operationId: getAdminReportsDailySales
+      tags: [admin-reports]
+      summary: Get daily sales trend for the last N days
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [7, 30]
+            default: 7
+      responses:
+        "200":
+          description: Daily sales trend
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailySales"
+
+  /admin/reports/top-products:
+    get:
+      operationId: getAdminReportsTopProducts
+      tags: [admin-reports]
+      summary: Get top-selling products for a date range
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Top selling products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopProduct"
 
   # ── Admin Orders ──────────────────────────────────────────────────────────────
   /admin/orders:
@@ -653,6 +737,65 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Order"
+
+    # ── Reports schemas ─────────────────────────────────────────────────────────
+    OrderStatusBreakdown:
+      type: object
+      required: [pending, confirmed, outForDelivery, delivered, cancelled]
+      properties:
+        pending:
+          type: integer
+        confirmed:
+          type: integer
+        outForDelivery:
+          type: integer
+        delivered:
+          type: integer
+        cancelled:
+          type: integer
+
+    ReportsSummary:
+      type: object
+      required: [totalSales, totalOrders, avgOrderValue, deliveredOrders, cancelledOrders, statusBreakdown]
+      properties:
+        totalSales:
+          type: integer
+        totalOrders:
+          type: integer
+        avgOrderValue:
+          type: integer
+        deliveredOrders:
+          type: integer
+        cancelledOrders:
+          type: integer
+        statusBreakdown:
+          $ref: "#/components/schemas/OrderStatusBreakdown"
+
+    DailySales:
+      type: object
+      required: [date, sales, orders]
+      properties:
+        date:
+          type: string
+        sales:
+          type: integer
+        orders:
+          type: integer
+
+    TopProduct:
+      type: object
+      required: [productId, name, brand, qtySold, revenue]
+      properties:
+        productId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        brand:
+          type: string
+        qtySold:
+          type: integer
+        revenue:
+          type: integer
 
     # ── Order schemas ───────────────────────────────────────────────────────────
     OrderItem:

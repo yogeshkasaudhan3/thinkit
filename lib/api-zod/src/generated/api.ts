@@ -92,6 +92,68 @@ export const GetAdminDashboardResponse = zod.object({
 
 
 /**
+ * @summary Get sales summary + order status breakdown for a date range
+ */
+export const GetAdminReportsSummaryQueryParams = zod.object({
+  "from": zod.coerce.string().describe('Start date (YYYY-MM-DD), inclusive'),
+  "to": zod.coerce.string().describe('End date (YYYY-MM-DD), inclusive')
+})
+
+export const GetAdminReportsSummaryResponse = zod.object({
+  "totalSales": zod.number(),
+  "totalOrders": zod.number(),
+  "avgOrderValue": zod.number(),
+  "deliveredOrders": zod.number(),
+  "cancelledOrders": zod.number(),
+  "statusBreakdown": zod.object({
+  "pending": zod.number(),
+  "confirmed": zod.number(),
+  "outForDelivery": zod.number(),
+  "delivered": zod.number(),
+  "cancelled": zod.number()
+})
+})
+
+
+/**
+ * @summary Get daily sales trend for the last N days
+ */
+export const getAdminReportsDailySalesQueryDaysDefault = 7;
+
+export const GetAdminReportsDailySalesQueryParams = zod.object({
+  "days": zod.union([zod.literal(7),zod.literal(30)]).default(getAdminReportsDailySalesQueryDaysDefault)
+})
+
+export const GetAdminReportsDailySalesResponseItem = zod.object({
+  "date": zod.string(),
+  "sales": zod.number(),
+  "orders": zod.number()
+})
+export const GetAdminReportsDailySalesResponse = zod.array(GetAdminReportsDailySalesResponseItem)
+
+
+/**
+ * @summary Get top-selling products for a date range
+ */
+export const getAdminReportsTopProductsQueryLimitDefault = 10;
+
+export const GetAdminReportsTopProductsQueryParams = zod.object({
+  "from": zod.coerce.string(),
+  "to": zod.coerce.string(),
+  "limit": zod.coerce.number().default(getAdminReportsTopProductsQueryLimitDefault)
+})
+
+export const GetAdminReportsTopProductsResponseItem = zod.object({
+  "productId": zod.number().nullable(),
+  "name": zod.string(),
+  "brand": zod.string(),
+  "qtySold": zod.number(),
+  "revenue": zod.number()
+})
+export const GetAdminReportsTopProductsResponse = zod.array(GetAdminReportsTopProductsResponseItem)
+
+
+/**
  * @summary List all orders
  */
 export const ListAdminOrdersQueryParams = zod.object({

@@ -76,6 +76,38 @@ export interface DashboardStats {
   recentOrders: Order[];
 }
 
+export interface OrderStatusBreakdown {
+  pending: number;
+  confirmed: number;
+  outForDelivery: number;
+  delivered: number;
+  cancelled: number;
+}
+
+export interface ReportsSummary {
+  totalSales: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  deliveredOrders: number;
+  cancelledOrders: number;
+  statusBreakdown: OrderStatusBreakdown;
+}
+
+export interface DailySales {
+  date: string;
+  sales: number;
+  orders: number;
+}
+
+export interface TopProduct {
+  /** @nullable */
+  productId: number | null;
+  name: string;
+  brand: string;
+  qtySold: number;
+  revenue: number;
+}
+
 export interface OrderStatusUpdate {
   status: string;
 }
@@ -259,6 +291,35 @@ export interface BannerUpdate {
   enabled?: boolean;
   sortOrder?: number;
 }
+
+export type GetAdminReportsSummaryParams = {
+/**
+ * Start date (YYYY-MM-DD), inclusive
+ */
+from: string;
+/**
+ * End date (YYYY-MM-DD), inclusive
+ */
+to: string;
+};
+
+export type GetAdminReportsDailySalesParams = {
+days?: GetAdminReportsDailySalesDays;
+};
+
+export type GetAdminReportsDailySalesDays = typeof GetAdminReportsDailySalesDays[keyof typeof GetAdminReportsDailySalesDays];
+
+
+export const GetAdminReportsDailySalesDays = {
+  NUMBER_7: 7,
+  NUMBER_30: 30,
+} as const;
+
+export type GetAdminReportsTopProductsParams = {
+from: string;
+to: string;
+limit?: number;
+};
 
 export type ListAdminOrdersParams = {
 /**

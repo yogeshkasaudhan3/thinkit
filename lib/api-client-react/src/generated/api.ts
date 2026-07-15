@@ -28,9 +28,13 @@ import type {
   BannerUpdate,
   BulkImportInput,
   BulkImportResult,
+  DailySales,
   DashboardStats,
   DeliveryPartnerInput,
   GenerateTempPasswordResult,
+  GetAdminReportsDailySalesParams,
+  GetAdminReportsSummaryParams,
+  GetAdminReportsTopProductsParams,
   HealthStatus,
   ListAdminOrdersParams,
   ListAdminProductsParams,
@@ -43,7 +47,9 @@ import type {
   ProductVariant,
   ProductVariantInput,
   ProductVariantUpdate,
-  StockToggle
+  ReportsSummary,
+  StockToggle,
+  TopProduct
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -433,6 +439,258 @@ export function useGetAdminDashboard<TData = Awaited<ReturnType<typeof getAdminD
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAdminDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminReportsSummaryUrl = (params: GetAdminReportsSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/reports/summary?${stringifiedParams}` : `/api/admin/reports/summary`
+}
+
+/**
+ * @summary Get sales summary + order status breakdown for a date range
+ */
+export const getAdminReportsSummary = async (params: GetAdminReportsSummaryParams, options?: RequestInit): Promise<ReportsSummary> => {
+
+  return customFetch<ReportsSummary>(getGetAdminReportsSummaryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminReportsSummaryQueryKey = (params?: GetAdminReportsSummaryParams,) => {
+    return [
+    `/api/admin/reports/summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdminReportsSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAdminReportsSummary>>, TError = ErrorType<unknown>>(params: GetAdminReportsSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminReportsSummaryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminReportsSummary>>> = ({ signal }) => getAdminReportsSummary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminReportsSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminReportsSummary>>>
+export type GetAdminReportsSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get sales summary + order status breakdown for a date range
+ */
+
+export function useGetAdminReportsSummary<TData = Awaited<ReturnType<typeof getAdminReportsSummary>>, TError = ErrorType<unknown>>(
+ params: GetAdminReportsSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminReportsSummaryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminReportsDailySalesUrl = (params?: GetAdminReportsDailySalesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/reports/daily-sales?${stringifiedParams}` : `/api/admin/reports/daily-sales`
+}
+
+/**
+ * @summary Get daily sales trend for the last N days
+ */
+export const getAdminReportsDailySales = async (params?: GetAdminReportsDailySalesParams, options?: RequestInit): Promise<DailySales[]> => {
+
+  return customFetch<DailySales[]>(getGetAdminReportsDailySalesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminReportsDailySalesQueryKey = (params?: GetAdminReportsDailySalesParams,) => {
+    return [
+    `/api/admin/reports/daily-sales`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdminReportsDailySalesQueryOptions = <TData = Awaited<ReturnType<typeof getAdminReportsDailySales>>, TError = ErrorType<unknown>>(params?: GetAdminReportsDailySalesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsDailySales>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminReportsDailySalesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminReportsDailySales>>> = ({ signal }) => getAdminReportsDailySales(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsDailySales>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminReportsDailySalesQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminReportsDailySales>>>
+export type GetAdminReportsDailySalesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get daily sales trend for the last N days
+ */
+
+export function useGetAdminReportsDailySales<TData = Awaited<ReturnType<typeof getAdminReportsDailySales>>, TError = ErrorType<unknown>>(
+ params?: GetAdminReportsDailySalesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsDailySales>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminReportsDailySalesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminReportsTopProductsUrl = (params: GetAdminReportsTopProductsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/reports/top-products?${stringifiedParams}` : `/api/admin/reports/top-products`
+}
+
+/**
+ * @summary Get top-selling products for a date range
+ */
+export const getAdminReportsTopProducts = async (params: GetAdminReportsTopProductsParams, options?: RequestInit): Promise<TopProduct[]> => {
+
+  return customFetch<TopProduct[]>(getGetAdminReportsTopProductsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminReportsTopProductsQueryKey = (params?: GetAdminReportsTopProductsParams,) => {
+    return [
+    `/api/admin/reports/top-products`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdminReportsTopProductsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminReportsTopProducts>>, TError = ErrorType<unknown>>(params: GetAdminReportsTopProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsTopProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminReportsTopProductsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminReportsTopProducts>>> = ({ signal }) => getAdminReportsTopProducts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsTopProducts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminReportsTopProductsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminReportsTopProducts>>>
+export type GetAdminReportsTopProductsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get top-selling products for a date range
+ */
+
+export function useGetAdminReportsTopProducts<TData = Awaited<ReturnType<typeof getAdminReportsTopProducts>>, TError = ErrorType<unknown>>(
+ params: GetAdminReportsTopProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminReportsTopProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminReportsTopProductsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

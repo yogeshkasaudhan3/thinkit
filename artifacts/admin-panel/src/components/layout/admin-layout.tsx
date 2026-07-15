@@ -15,11 +15,13 @@ import {
   Settings,
   RefreshCw,
   KeyRound,
+  BarChart3,
 } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Orders', path: '/orders', icon: ShoppingBag },
+  { name: 'Reports & Analytics', path: '/reports', icon: BarChart3 },
   { name: 'Products', path: '/products', icon: Package },
   { name: 'Categories', path: '/categories', icon: LayoutGrid },
   { name: 'Banners', path: '/banners', icon: ImageIcon },

@@ -6,6 +6,7 @@ import { Route, Switch, Router as WouterRouter, Redirect } from 'wouter';
 
 import Login from '@/pages/login';
 import Dashboard from '@/pages/dashboard';
+import Reports from '@/pages/reports';
 import Orders from '@/pages/orders';
 import Products from '@/pages/products';
 import ProductForm from '@/pages/product-form';
@@ -71,6 +72,7 @@ function AuthenticatedRoutes() {
       <AdminLayout>
         <Switch>
           <Route path="/dashboard" component={Dashboard} />
+          <Route path="/reports" component={Reports} />
           <Route path="/orders" component={Orders} />
           <Route path="/products" component={Products} />
           <Route path="/products/new" component={ProductForm} />
