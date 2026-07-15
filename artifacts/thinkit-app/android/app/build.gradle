@@ -1,5 +1,21 @@
 apply plugin: 'com.android.application'
 
+// --- Release signing -------------------------------------------------------
+// Credentials are read from environment variables at build time. Nothing
+// secret is ever written to this file or committed to the repo.
+//
+//   KEYSTORE_FILE     - absolute path to the .jks/.keystore file on the
+//                        machine running the build (CI decodes the base64
+//                        secret to a temp file and points this at it)
+//   KEYSTORE_PASSWORD - the keystore's store password
+//   KEY_ALIAS         - the signing key alias inside the keystore
+//   KEY_PASSWORD      - the signing key's password
+//
+// If these are not set (e.g. a local/dev build), the release build type is
+// simply left unsigned instead of failing the build.
+def keystoreFilePath = System.getenv("KEYSTORE_FILE")
+def hasSigningEnv = keystoreFilePath != null && !keystoreFilePath.isEmpty()
+
 android {
     namespace "com.dwarika.thinkit"
     compileSdk rootProject.ext.compileSdkVersion
@@ -16,8 +32,19 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasSigningEnv) {
+                storeFile file(keystoreFilePath)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig hasSigningEnv ? signingConfigs.release : null
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
