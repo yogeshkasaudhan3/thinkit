@@ -16,3 +16,4 @@
 - [Image proxy always-Sharp rule](image-proxy-always-sharp.md) — uploads path always runs Sharp (default 1200px) even without ?w=; pino-http strips query strings from req.url in logs (split("?")[0])
 - [Product variants pattern](product-variants-pattern.md) — variants are additive alt pack sizes, never replace base fields; cart id encodes variant suffix; grep orval-generated names, don't guess
 - [Manual password reset pattern](manual-password-reset.md) — mobile-based forgot-password, admin-verified temp password, generic response always, forcePasswordChange gates client routing
+- [Supabase migration cutover](supabase-migration-cutover.md) — Supabase direct connection is IPv6-only (unreachable from Replit); use Session Pooler; DATABASE_URL is runtime-managed, can't be reassigned
