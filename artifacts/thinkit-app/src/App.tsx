@@ -19,6 +19,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import SearchPage from './pages/SearchPage';
 import ContactPage from './pages/ContactPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ function Router() {
     <Switch>
       <Route path="/" component={SplashPage} />
       <Route path="/signin" component={SignInPage} />
+      <Route path="/privacy-policy" component={PrivacyPolicyPage} />
       <Route path="/create-new-password" component={CreateNewPasswordRoute} />
       <Route path="/home">{() => <ProtectedRoute component={HomePage} />}</Route>
       <Route path="/categories">{() => <ProtectedRoute component={CategoriesPage} />}</Route>
