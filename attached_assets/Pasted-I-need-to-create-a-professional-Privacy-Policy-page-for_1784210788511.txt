@@ -1,0 +1,66 @@
+I need to create a professional Privacy Policy page for THINKIT.
+
+Please create a new public Privacy Policy page on the website with this URL:
+
+https://thinkit.store/privacy-policy
+
+Use the following details:
+
+Legal Business Name:
+Shiv Prasad Dwarika Prasad Kirana
+
+Brand Identity / App Name:
+THINKIT
+
+Website:
+https://thinkit.store
+
+Contact Email:
+thinkitindia.team@gmail.com
+
+Business Type:
+Online Grocery Delivery Application
+
+Requirements:
+
+1. Create a proper Google Play Store compliant Privacy Policy page.
+
+2. The policy should clearly explain:
+   - About THINKIT and Shiv Prasad Dwarika Prasad Kirana
+   - Information we collect:
+     * Name
+     * Mobile number
+     * Delivery address
+     * Order details
+     * Cart and purchase history
+     * Basic device/application information
+   - How we use collected information:
+     * Processing grocery orders
+     * Delivery services
+     * Customer support
+     * Improving app experience
+   - Data security practices
+   - Data sharing policy
+   - Third-party services (if applicable)
+   - User rights
+   - Account/data deletion request process
+   - Contact information
+
+3. The page should be mobile-friendly and match the existing THINKIT website/app design.
+
+4. Add the page in the website navigation/footer only if required.
+
+5. Make sure the final published URL works publicly without login.
+
+6. IMPORTANT:
+Do not modify, remove, break, or change any existing functionality, design, database, app features, products, categories, orders, admin panel, authentication, or existing pages.
+
+7. This task is ONLY for creating the Privacy Policy page. 
+Do not make any unrelated changes.
+
+8. Before making changes, review the existing structure carefully and ensure all current features continue working exactly as before.
+
+After completion:
+- Provide the final Privacy Policy URL.
+- Confirm that the page is publicly accessible.
+- Confirm that no existing functionality was affected.
