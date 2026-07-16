@@ -50,11 +50,11 @@ jobs:
       - name: Sync Capacitor Android project
         run: pnpm --filter @workspace/thinkit-app run cap:sync
 
-      - name: Setup JDK 17
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Decode signing keystore
         # Writes the keystore to a runner-local temp file. This file never
