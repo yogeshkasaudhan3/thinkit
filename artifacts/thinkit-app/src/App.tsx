@@ -48,6 +48,7 @@ function Router() {
       <Route path="/" component={SplashPage} />
       <Route path="/signin" component={SignInPage} />
       <Route path="/privacy-policy" component={PrivacyPolicyPage} />
+      <Route path="/privacy-policy/">{() => <Redirect to="/privacy-policy" />}</Route>
       <Route path="/create-new-password" component={CreateNewPasswordRoute} />
       <Route path="/home">{() => <ProtectedRoute component={HomePage} />}</Route>
       <Route path="/categories">{() => <ProtectedRoute component={CategoriesPage} />}</Route>
