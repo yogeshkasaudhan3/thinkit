@@ -20,6 +20,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import SearchPage from './pages/SearchPage';
 import ContactPage from './pages/ContactPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import DataDeletionPage from './pages/DataDeletionPage';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
@@ -49,6 +50,8 @@ function Router() {
       <Route path="/signin" component={SignInPage} />
       <Route path="/privacy-policy" component={PrivacyPolicyPage} />
       <Route path="/privacy-policy/">{() => <Redirect to="/privacy-policy" />}</Route>
+      <Route path="/data-deletion" component={DataDeletionPage} />
+      <Route path="/data-deletion/">{() => <Redirect to="/data-deletion" />}</Route>
       <Route path="/create-new-password" component={CreateNewPasswordRoute} />
       <Route path="/home">{() => <ProtectedRoute component={HomePage} />}</Route>
       <Route path="/categories">{() => <ProtectedRoute component={CategoriesPage} />}</Route>
