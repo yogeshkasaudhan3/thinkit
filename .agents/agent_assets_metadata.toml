@@ -6,3 +6,9 @@ id = "3Gtg6Bi9a5QXvsu7vbetw"
 uri = "file://thinkit-hostinger-deploy.zip"
 type = "unspecified"
 title = "thinkit-hostinger-deploy.zip"
+
+[[outputs]]
+id = "riSpiALJcX8eu7Ot1Tsgj"
+uri = "file://thinkit-hostinger-deploy-nomaps.zip"
+type = "unspecified"
+title = "thinkit-hostinger-deploy-nomaps.zip (2.7 MB)"
