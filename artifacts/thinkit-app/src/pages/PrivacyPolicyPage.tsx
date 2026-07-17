@@ -57,6 +57,9 @@ export default function PrivacyPolicyPage() {
 
         <Section title="2. Information We Collect">
           <p className="mb-2">
+            We collect only the minimum information required to provide our services.
+          </p>
+          <p className="mb-2">
             We collect only the information necessary to provide our grocery delivery
             service. This includes:
           </p>
@@ -202,17 +205,37 @@ export default function PrivacyPolicyPage() {
           </p>
         </Section>
 
-        <Section title="12. Contact Us">
+        <Section title="12. App Permissions">
+          <p className="mb-2">
+            THINKIT currently requests only the <strong>Internet</strong> permission,
+            which is required to connect securely to our servers and provide grocery
+            browsing, ordering, and delivery services.
+          </p>
+          <p>
+            THINKIT does not request access to your device's location, camera, photos,
+            storage, contacts, microphone, or notifications.
+          </p>
+        </Section>
+
+        <Section title="13. Contact Us">
           <p className="mb-3">
             If you have any questions, concerns, or requests regarding this Privacy
             Policy or your personal data, please contact us:
           </p>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
             <div className="flex items-start gap-3">
               <Shield size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-gray-800">Shiv Prasad Dwarika Prasad Kirana</p>
-                <p className="text-sm text-gray-600">Operating as THINKIT</p>
+                <p className="text-sm text-gray-600">Operating as THINKIT (Dwarika Grocery Mart)</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-4 flex-shrink-0" />
+              <div className="text-sm text-gray-700 leading-relaxed">
+                <p>Chowk Ghantaghar, Towards G.N. Road</p>
+                <p>Sultanpur, Uttar Pradesh – 228001</p>
+                <p>India</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -222,6 +245,15 @@ export default function PrivacyPolicyPage() {
                 className="text-sm text-green-700 underline"
               >
                 thinkitindia.team@gmail.com
+              </a>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-4 flex-shrink-0" />
+              <a
+                href="https://thinkit.store"
+                className="text-sm text-green-700 underline"
+              >
+                https://thinkit.store
               </a>
             </div>
           </div>
