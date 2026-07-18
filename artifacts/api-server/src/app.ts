@@ -58,7 +58,13 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      sameSite: "lax",
+      // "none" is required for the Capacitor Android app: the WebView origin
+      // (capacitor://localhost) is cross-site relative to thinkit.store, so
+      // SameSite=Lax would silently drop the session cookie on every request
+      // from the native app. SameSite=None is safe here because secure=true
+      // is already enforced in production (HTTPS only).
+      // In development we fall back to "lax" so local testing still works.
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       // Default: 8 hours. Override with SESSION_TTL_MS env var.
       maxAge: process.env.SESSION_TTL_MS
         ? Number(process.env.SESSION_TTL_MS)

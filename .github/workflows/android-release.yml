@@ -42,10 +42,15 @@ jobs:
 
       - name: Build production web bundle
         # PORT / BASE_PATH match artifacts/thinkit-app/.replit-artifact/artifact.toml
+        # VITE_API_BASE_URL is baked into the JS bundle at build time so the
+        # Capacitor WebView knows where to send all API requests. Without this,
+        # every fetch('/api/...') call resolves against capacitor://localhost
+        # instead of the real backend, causing an immediate network error on login.
         run: pnpm --filter @workspace/thinkit-app run build
         env:
           PORT: "24545"
           BASE_PATH: "/"
+          VITE_API_BASE_URL: "https://thinkit.store"
 
       - name: Sync Capacitor Android project
         run: pnpm --filter @workspace/thinkit-app run cap:sync
