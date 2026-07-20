@@ -15,7 +15,9 @@ name: Android Release Build
 # runner's disk for the duration of the job.
 
 on:
+  # Manual trigger — go to Actions → Android Release Build → Run workflow
   workflow_dispatch: {}
+  # Automatic trigger — any tag of the form android-v* (e.g. android-v2)
   push:
     tags:
       - "android-v*"
