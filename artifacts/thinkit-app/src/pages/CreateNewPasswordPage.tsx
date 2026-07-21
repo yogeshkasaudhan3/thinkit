@@ -52,7 +52,7 @@ export default function CreateNewPasswordPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-white flex flex-col">
+    <div className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-white flex flex-col">
       <div className="bg-primary px-6 pt-14 pb-10 flex flex-col items-center">
         <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-4">
           <ShieldCheck className="text-white" size={30} />

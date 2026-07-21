@@ -22,7 +22,7 @@ export default function CartPage() {
   if (cart.length === 0) {
     return (
       <motion.div 
-        className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-gray-50 pb-20 flex flex-col"
+        className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-gray-50 pb-20 flex flex-col"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -48,7 +48,7 @@ export default function CartPage() {
 
   return (
     <motion.div 
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-gray-50 pb-32 flex flex-col"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-gray-50 pb-32 flex flex-col"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0 }}
@@ -217,7 +217,7 @@ export default function CartPage() {
       </div>
 
       {/* Sticky Checkout Bar */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto bg-white p-4 border-t border-gray-100 z-50">
+      <div className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-white p-4 border-t border-gray-100 z-50">
         <button
           onClick={() => setLocation('/checkout')}
           className="w-full flex items-center justify-between p-4 rounded-xl text-white font-bold transition-transform bg-primary active:scale-[0.98]"

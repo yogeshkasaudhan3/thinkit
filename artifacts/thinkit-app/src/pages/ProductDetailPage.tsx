@@ -72,7 +72,7 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-white flex items-center justify-center">
+      <div className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-white flex items-center justify-center">
         <p className="text-sm text-gray-400">Loading…</p>
       </div>
     );
@@ -92,7 +92,7 @@ export default function ProductDetailPage() {
 
   return (
     <motion.div
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-white pb-24"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-white pb-24"
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0 }}
@@ -217,7 +217,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Floating Add to Cart */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto bg-white p-4 border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40">
+      <div className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-white p-4 border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40">
         {!displayInStock ? (
           <button disabled className="w-full h-12 bg-gray-200 text-gray-500 font-bold rounded-xl">
             Out of Stock

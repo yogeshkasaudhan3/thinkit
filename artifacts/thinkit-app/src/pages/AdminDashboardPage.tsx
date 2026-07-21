@@ -26,7 +26,7 @@ export default function AdminDashboardPage() {
 
   return (
     <motion.div 
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-gray-50 flex flex-col"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-gray-50 flex flex-col"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >

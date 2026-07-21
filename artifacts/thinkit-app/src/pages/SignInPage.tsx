@@ -190,7 +190,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-white flex flex-col overflow-y-auto">
+    <div className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-white flex flex-col overflow-y-auto">
 
       {/* Hero */}
       <div className="bg-primary px-6 pt-14 pb-10 flex flex-col items-center">

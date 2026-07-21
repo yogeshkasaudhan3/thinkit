@@ -96,7 +96,7 @@ function SkeletonGrid() {
     <div className="p-4 grid grid-cols-2 gap-3">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="bg-white rounded-xl border border-gray-100 overflow-hidden animate-pulse">
-          <div className="h-[150px] bg-gray-100" />
+          <div className="w-full bg-gray-100" style={{ aspectRatio: '1 / 1' }} />
           <div className="p-2.5 flex flex-col gap-2">
             <div className="h-2.5 bg-gray-100 rounded w-2/3" />
             <div className="h-3 bg-gray-100 rounded w-full" />
@@ -307,7 +307,7 @@ export default function SearchPage() {
 
   return (
     <motion.div
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-gray-50 flex flex-col"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-gray-50 flex flex-col"
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 30 }}

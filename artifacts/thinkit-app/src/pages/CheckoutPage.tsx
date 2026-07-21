@@ -85,7 +85,7 @@ export default function CheckoutPage() {
 
   return (
     <motion.div 
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-gray-50 pb-24 flex flex-col relative"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-gray-50 pb-24 flex flex-col relative"
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0 }}
@@ -200,7 +200,7 @@ export default function CheckoutPage() {
 
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto bg-white p-4 border-t border-gray-100 z-50">
+      <div className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-white p-4 border-t border-gray-100 z-50">
         <button 
           onClick={handlePlaceOrder}
           disabled={isPlacing}

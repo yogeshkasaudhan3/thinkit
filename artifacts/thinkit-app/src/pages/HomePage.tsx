@@ -74,9 +74,9 @@ export const ProductCard = memo(function ProductCard({
   const cartItem = cart.find(c => c.product.id === product.id && !c.variant);
   const qty = cartItem ? cartItem.qty : 0;
 
-  // 360px: at 390px viewport, 2-col grid with padding gives ~173px card slots.
-  // 173 × 2 DPR = 346px → round up to 360 for a crisp 2× render.
-  const fullSrc = cloudinaryOpt(product.imageUrl, 360);
+  // Viewport can now be up to 480px; card slot ≈ (480-44)/2 = 218px.
+  // 218 × 2 DPR = 436px → round up to 480 for a crisp 2× render on any device.
+  const fullSrc = cloudinaryOpt(product.imageUrl, 480);
   // 20px LQIP loads in <100 ms; shown blurred until full image is ready
   const lqipSrc = cloudinaryOpt(product.imageUrl, 20);
 
@@ -132,8 +132,8 @@ export const ProductCard = memo(function ProductCard({
         </div>
       )}
 
-      {/* Image area — fixed 150px height */}
-      <div className="relative w-full bg-white border-b border-gray-100 overflow-hidden rounded-t-xl" style={{ height: 150 }}>
+      {/* Image area — square aspect ratio, scales with card width on any screen */}
+      <div className="relative w-full bg-white border-b border-gray-100 overflow-hidden rounded-t-xl" style={{ aspectRatio: '1 / 1' }}>
         {fullSrc && !imgError ? (
           <>
             {/* Gray pulse — visible only until the LQIP arrives */}
@@ -198,39 +198,43 @@ export const ProductCard = memo(function ProductCard({
 
       {/* Product info */}
       <div className="px-2.5 pt-2 pb-2.5 flex-1 flex flex-col gap-0.5">
-        <p className="text-[10px] text-gray-400 font-medium truncate">{product.weight}</p>
-        <h3 className="font-semibold text-[12.5px] leading-tight text-gray-900 line-clamp-2 min-h-[34px]">{product.name}</h3>
+        {/* Weight — clamp keeps it readable from 360 to 480 dp */}
+        <p className="text-[clamp(9px,2.4vw,10.5px)] text-gray-400 font-medium truncate">{product.weight}</p>
+        {/* Title — min-h in em units scales with the clamped font size */}
+        <h3 className="font-semibold text-[clamp(11.5px,3vw,13px)] leading-tight text-gray-900 line-clamp-2 min-h-[2.5em]">{product.name}</h3>
 
         <div className="mt-auto pt-1.5 flex items-center justify-between gap-1">
           <div className="min-w-0">
             {product.mrp > product.price && (
-              <p className="text-[10px] text-gray-400 line-through leading-none mb-0.5">₹{product.mrp}</p>
+              <p className="text-[clamp(9px,2.4vw,10.5px)] text-gray-400 line-through leading-none mb-0.5">₹{product.mrp}</p>
             )}
-            <p className="font-bold text-[15px] text-gray-900 leading-none">₹{product.price}</p>
+            <p className="font-bold text-[clamp(13px,3.8vw,16px)] text-gray-900 leading-none">₹{product.price}</p>
           </div>
 
           {qty === 0 ? (
             <button
               onClick={handleAdd}
               disabled={!product.inStock}
-              className={`shrink-0 border-2 border-primary text-primary px-3 py-[5px] rounded-lg text-[11px] font-bold tracking-wide active:bg-primary/10 transition-colors bg-white ${!product.inStock ? 'opacity-40 cursor-not-allowed' : ''}`}
+              className={`shrink-0 border-2 border-primary text-primary px-3 py-[5px] rounded-lg text-[clamp(10px,2.8vw,12px)] font-bold tracking-wide active:bg-primary/10 transition-colors bg-white ${!product.inStock ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
               ADD
             </button>
           ) : (
-            <div className="flex items-center bg-primary text-white rounded-lg h-[30px] w-[76px]">
+            /* Stepper — clamp-sized so it never overflows narrow cards or wastes space on wide ones */
+            <div className="flex items-center bg-primary text-white rounded-lg"
+              style={{ height: 'clamp(26px,7.5vw,32px)', width: 'clamp(66px,19vw,84px)' }}>
               <button
                 onClick={(e) => handleUpdate(e, qty - 1)}
                 className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-l-lg"
               >
-                <Minus size={13} />
+                <Minus size={12} />
               </button>
-              <span className="text-[13px] font-bold w-5 text-center">{qty}</span>
+              <span className="text-[clamp(11px,3vw,13px)] font-bold w-5 text-center">{qty}</span>
               <button
                 onClick={(e) => handleUpdate(e, qty + 1)}
                 className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-r-lg"
               >
-                <Plus size={13} />
+                <Plus size={12} />
               </button>
             </div>
           )}
@@ -246,21 +250,26 @@ function CategoryTile({ cat }: { cat: { id: number; name: string; emoji: string 
   const style = CATEGORY_ICONS[String(cat.id)];
   return (
     <Link href={`/category/${cat.id}`} className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+      {/* Icon box — scales from ~52 px at 360 dp to ~70 px at 480 dp */}
       <div
-        className="w-16 h-16 rounded-2xl shadow-sm flex items-center justify-center overflow-hidden"
-        style={{ backgroundColor: style ? style.bg : '#F3F4F6' }}
+        className="rounded-2xl shadow-sm flex items-center justify-center overflow-hidden"
+        style={{
+          width: 'clamp(52px, 15.5vw, 70px)',
+          height: 'clamp(52px, 15.5vw, 70px)',
+          backgroundColor: style ? style.bg : '#F3F4F6',
+        }}
       >
         {cat.imageUrl ? (
-          <img src={cloudinaryOpt(cat.imageUrl, 128) ?? cat.imageUrl} alt={cat.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+          <img src={cloudinaryOpt(cat.imageUrl, 140) ?? cat.imageUrl} alt={cat.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : cat.emoji ? (
-          <span className="text-3xl">{cat.emoji}</span>
+          <span className="text-[clamp(22px,6vw,28px)]">{cat.emoji}</span>
         ) : style ? (
-          <style.Icon size={28} color={style.color} strokeWidth={1.75} />
+          <style.Icon size={24} color={style.color} strokeWidth={1.75} />
         ) : (
-          <ShoppingBag size={24} color="#6B7280" strokeWidth={1.75} />
+          <ShoppingBag size={22} color="#6B7280" strokeWidth={1.75} />
         )}
       </div>
-      <span className="text-[10px] text-center font-medium leading-tight text-gray-700">{cat.name}</span>
+      <span className="text-[clamp(9px,2.5vw,11px)] text-center font-medium leading-tight text-gray-700">{cat.name}</span>
     </Link>
   );
 }
@@ -300,7 +309,7 @@ export default function HomePage() {
 
   return (
     <motion.div
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-gray-50 pb-20"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-gray-50 pb-20"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -324,9 +333,10 @@ export default function HomePage() {
             {displayBanners.map((slide, idx) => (
               <div key={slide.id} className="flex-[0_0_100%] min-w-0">
                 {slide.imageUrl ? (
-                  <div className="relative h-36 rounded-2xl overflow-hidden bg-gray-100">
+                  /* aspect-[8/3] ≈ 2.67:1 — maintains the banner ratio on any screen width */
+                  <div className="relative rounded-2xl overflow-hidden bg-gray-100" style={{ aspectRatio: '8/3' }}>
                     <img
-                      src={cloudinaryOpt(slide.imageUrl, 780) ?? slide.imageUrl}
+                      src={cloudinaryOpt(slide.imageUrl, 960) ?? slide.imageUrl}
                       alt={slide.title}
                       loading={idx === 0 ? 'eager' : 'lazy'}
                       fetchPriority={idx === 0 ? 'high' : 'auto'}
@@ -342,7 +352,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 ) : (
-                  <div className={`${slide.bg || 'bg-gradient-to-r from-primary to-primary/80'} p-6 rounded-2xl h-36 flex flex-col justify-center relative overflow-hidden`}>
+                  <div className={`${slide.bg || 'bg-gradient-to-r from-primary to-primary/80'} p-6 rounded-2xl flex flex-col justify-center relative overflow-hidden`} style={{ aspectRatio: '8/3' }}>
                     <div className="relative z-10">
                       <h2 className="text-white font-bold text-2xl mb-1">{slide.title}</h2>
                       {slide.subtitle && <p className="text-white text-sm opacity-90 mb-3">{slide.subtitle}</p>}
@@ -369,8 +379,8 @@ export default function HomePage() {
           <div className="grid grid-cols-4 gap-y-6 gap-x-2">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex flex-col items-center gap-2">
-                <div className="w-16 h-16 rounded-2xl bg-gray-100 animate-pulse" />
-                <div className="h-3 w-12 bg-gray-100 rounded animate-pulse" />
+                <div className="rounded-2xl bg-gray-100 animate-pulse" style={{ width: 'clamp(52px,15.5vw,70px)', height: 'clamp(52px,15.5vw,70px)' }} />
+                <div className="h-2.5 w-10 bg-gray-100 rounded animate-pulse" />
               </div>
             ))}
           </div>
@@ -397,9 +407,11 @@ export default function HomePage() {
             <h2 className="font-bold text-lg text-gray-900">Best Sellers</h2>
             <Link href="/products/all" className="text-primary text-sm font-semibold">See All</Link>
           </div>
+          {/* Card width = 42 vw so two-and-a-bit cards are visible at any viewport width.
+              Floors at 140 px (tiny phones), ceiling at 200 px (tablets/480 dp+). */}
           <div className="flex overflow-x-auto gap-3 px-4 pb-4 snap-x no-scrollbar">
             {bestSellers.map(product => (
-              <div key={product.id} className="snap-start min-w-[160px] w-[160px]">
+              <div key={product.id} className="snap-start shrink-0" style={{ width: 'clamp(140px, 42vw, 200px)' }}>
                 <ProductCard product={product} />
               </div>
             ))}
@@ -416,7 +428,7 @@ export default function HomePage() {
           </div>
           <div className="flex overflow-x-auto gap-3 px-4 pb-4 snap-x no-scrollbar">
             {dwarikaSpecials.map(product => (
-              <div key={product.id} className="snap-start min-w-[160px] w-[160px]">
+              <div key={product.id} className="snap-start shrink-0" style={{ width: 'clamp(140px, 42vw, 200px)' }}>
                 <ProductCard product={product} />
               </div>
             ))}

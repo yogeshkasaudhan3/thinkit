@@ -15,7 +15,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto bg-white border-t border-gray-100 px-2 pb-safe pt-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40">
+    <div className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-white border-t border-gray-100 px-2 pb-safe pt-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40">
       <div className="flex justify-between items-center h-14">
         {tabs.map((tab) => {
           const isActive = location.startsWith(tab.path) || (tab.path === '/categories' && location.startsWith('/category/'));

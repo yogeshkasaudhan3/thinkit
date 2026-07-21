@@ -17,7 +17,7 @@ import { usePreloadImages } from '../lib/usePreloadImages';
 function SkeletonCard() {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col animate-pulse">
-      <div className="h-[150px] bg-gray-100" />
+      <div className="w-full bg-gray-100" style={{ aspectRatio: '1 / 1' }} />
       <div className="px-2.5 pt-2 pb-2.5 flex flex-col gap-2">
         <div className="h-2.5 bg-gray-100 rounded w-2/3" />
         <div className="h-3 bg-gray-100 rounded w-full" />
@@ -72,7 +72,7 @@ export default function ProductListingPage() {
 
   return (
     <motion.div
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-gray-50 pb-20 flex flex-col"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-gray-50 pb-20 flex flex-col"
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0 }}

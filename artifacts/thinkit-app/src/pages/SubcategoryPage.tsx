@@ -54,7 +54,8 @@ function bgFromName(name: string): string {
 function SkeletonCard() {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col animate-pulse">
-      <div className="h-[150px] bg-gray-100" />
+      {/* Aspect-ratio matches ProductCard image area so skeleton has the same height */}
+      <div className="w-full bg-gray-100" style={{ aspectRatio: '1 / 1' }} />
       <div className="px-2.5 pt-2 pb-2.5 flex flex-col gap-2">
         <div className="h-2.5 bg-gray-100 rounded w-2/3" />
         <div className="h-3 bg-gray-100 rounded w-full" />
@@ -77,9 +78,10 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
   return (
     <div
       style={{
-        width: 52,
-        height: 52,
-        borderRadius: 14,
+        /* Icon scales from 42 px (360 dp) to 52 px (480 dp) so it always fits the sidebar */
+        width: 'clamp(42px, 11.5vw, 52px)',
+        height: 'clamp(42px, 11.5vw, 52px)',
+        borderRadius: 12,
         overflow: 'hidden',
         background: bgFromName(sub.name),
         borderWidth: active ? 2 : 1.5,
@@ -103,7 +105,7 @@ function SidebarIcon({ sub, active }: { sub: SubcategoryInfo; active: boolean })
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#374151', userSelect: 'none' }}>
+        <span style={{ fontSize: 'clamp(12px, 3.5vw, 15px)', fontWeight: 700, color: '#374151', userSelect: 'none' }}>
           {initials}
         </span>
       )}
@@ -137,7 +139,7 @@ function SidebarItem({ sub, active, onClick }: { sub: SubcategoryInfo; active: b
       <SidebarIcon sub={sub} active={active} />
       <span
         style={{
-          fontSize: 9.5,
+          fontSize: 'clamp(8.5px, 2.3vw, 10px)',
           fontWeight: active ? 700 : 500,
           color: active ? '#16A34A' : '#6B7280',
           textAlign: 'center',
@@ -257,7 +259,7 @@ export default function SubcategoryPage() {
       style={{
         height: '100dvh',
         width: '100%',
-        maxWidth: 390,
+        maxWidth: 480,
         margin: '0 auto',
         background: '#ffffff',
         display: 'flex',
@@ -269,10 +271,10 @@ export default function SubcategoryPage() {
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
-        {/* Left sidebar */}
+        {/* Left sidebar — width scales from 80 px (360 dp) to 100 px (480 dp) */}
         <aside
           style={{
-            width: 90,
+            width: 'clamp(80px, 22vw, 100px)',
             flexShrink: 0,
             background: '#FAFAFA',
             borderRight: '1px solid #F0F0F0',

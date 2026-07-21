@@ -18,7 +18,7 @@ export default function CategoriesPage() {
 
   return (
     <motion.div
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto bg-gray-50 pb-20"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto bg-gray-50 pb-20"
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0 }}
@@ -28,7 +28,8 @@ export default function CategoriesPage() {
       {loading ? (
         <div className="p-4 grid grid-cols-2 gap-3">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-100 rounded-2xl p-4 h-24 animate-pulse" />
+            /* aspect-[5/3] keeps skeleton proportional on any card width */
+            <div key={i} className="bg-white border border-gray-100 rounded-2xl p-4 animate-pulse" style={{ aspectRatio: '5/3' }} />
           ))}
         </div>
       ) : (
@@ -42,9 +43,10 @@ export default function CategoriesPage() {
                 className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col gap-3 shadow-sm active:scale-95 transition-transform"
               >
                 <div className="flex justify-between items-start">
+                  {/* Icon — scales from 48 px (360 dp) to 60 px (480 dp) */}
                   <div
-                    className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden"
-                    style={{ backgroundColor: bg }}
+                    className="rounded-xl flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: bg, width: 'clamp(44px, 13.5vw, 60px)', height: 'clamp(44px, 13.5vw, 60px)' }}
                   >
                     {cat.imageUrl ? (
                       <img

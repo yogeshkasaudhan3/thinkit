@@ -31,22 +31,25 @@ function RecoCard({ product }: { product: Product }) {
   const bgColor = product.color ?? '#e8e8e8';
 
   return (
-    <div className="flex-shrink-0 w-[136px] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+    /* Card: 38 vw wide, floored at 128 px, ceiled at 160 px */
+    <div className="flex-shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col"
+      style={{ width: 'clamp(128px, 38vw, 160px)' }}>
+      {/* Image area — aspect-ratio keeps it proportional on any card width */}
       <div
-        className="h-[100px] flex items-center justify-center"
-        style={{ backgroundColor: `${bgColor}30` }}
+        className="w-full flex items-center justify-center"
+        style={{ backgroundColor: `${bgColor}30`, aspectRatio: '4/3' }}
       >
         {product.imageUrl ? (
           <img
-            src={cloudinaryOpt(product.imageUrl, 200) ?? product.imageUrl}
+            src={cloudinaryOpt(product.imageUrl, 240) ?? product.imageUrl}
             alt={product.name}
             loading="lazy"
             decoding="async"
-            className="w-14 h-14 object-contain rounded-full"
+            className="w-[48%] aspect-square object-contain rounded-full"
           />
         ) : (
           <div
-            className="w-14 h-14 rounded-full shadow-inner flex items-center justify-center text-[9px] font-bold border-2 border-white text-center px-1"
+            className="w-[48%] aspect-square rounded-full shadow-inner flex items-center justify-center text-[9px] font-bold border-2 border-white text-center px-1"
             style={{ backgroundColor: bgColor }}
           >
             {product.brand}
@@ -62,7 +65,8 @@ function RecoCard({ product }: { product: Product }) {
           <span className="text-sm font-bold text-gray-900">₹{product.price}</span>
 
           {cartItem ? (
-            <div className="flex items-center bg-primary text-white rounded-lg h-7 w-[64px]">
+            <div className="flex items-center bg-primary text-white rounded-lg"
+              style={{ height: 'clamp(24px, 7vw, 30px)', width: 'clamp(58px, 17vw, 70px)' }}>
               <button
                 onClick={() => updateQty(cartItem.id, cartItem.qty - 1)}
                 className="flex-1 flex justify-center items-center h-full active:bg-black/10 rounded-l-lg text-base leading-none"

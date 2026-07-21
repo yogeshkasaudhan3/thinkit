@@ -39,7 +39,7 @@ export default function SplashPage() {
 
   return (
     <div
-      className="min-h-[100dvh] w-full max-w-[390px] mx-auto flex flex-col items-center justify-center relative overflow-hidden"
+      className="min-h-[100dvh] w-full max-w-[480px] mx-auto flex flex-col items-center justify-center relative overflow-hidden"
       style={{
         /* Dark #0B5D3B base — slightly lighter bloom at centre */
         background:
