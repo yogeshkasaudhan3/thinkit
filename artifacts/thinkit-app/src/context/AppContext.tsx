@@ -102,7 +102,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Auth helpers ────────────────────────────────────────────────────────────
 
   const refreshAuth = useCallback(async () => {
-    try {
+    // Inner helper: makes one /api/auth/me attempt and applies the result.
+    // Returns true when the state has been resolved (either authenticated or
+    // unauthenticated). Throws on network error so the caller can retry.
+    const attempt = async (): Promise<void> => {
       const res = await fetch('/api/auth/me', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
@@ -111,16 +114,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setForcePasswordChange(Boolean(data.forcePasswordChange));
         setAuthStatus('authenticated');
       } else {
+        // Server replied with a non-2xx (e.g. 401) — session is genuinely
+        // expired or absent. Clear state immediately.
         setAuthUser(null);
         setUserAddress(null);
         setForcePasswordChange(false);
         setAuthStatus('unauthenticated');
       }
+    };
+
+    try {
+      await attempt();
     } catch {
-      setAuthUser(null);
-      setUserAddress(null);
-      setForcePasswordChange(false);
-      setAuthStatus('unauthenticated');
+      // Network error — NOT a server rejection. On Android, the device is
+      // often still establishing its mobile/WiFi connection when the app
+      // cold-starts, so the first fetch can throw "TypeError: Failed to fetch"
+      // even though the session cookie on the server is completely valid.
+      // Waiting 2 s and retrying gives the OS time to bring the radio up.
+      // Only if the retry also fails (genuinely offline) do we fall back to
+      // 'unauthenticated' — which at least lets the user reach the login form.
+      await new Promise<void>(resolve => setTimeout(resolve, 2000));
+      try {
+        await attempt();
+      } catch {
+        setAuthUser(null);
+        setUserAddress(null);
+        setForcePasswordChange(false);
+        setAuthStatus('unauthenticated');
+      }
     }
   }, []);
 

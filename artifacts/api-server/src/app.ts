@@ -65,10 +65,15 @@ app.use(
       // is already enforced in production (HTTPS only).
       // In development we fall back to "lax" so local testing still works.
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      // Default: 8 hours. Override with SESSION_TTL_MS env var.
+      // Default: 30 days. Override with SESSION_TTL_MS env var.
+      // 30 days is the target UX: users should stay logged in unless they
+      // explicitly log out or uninstall the app. rolling:true (above) means
+      // the 30-day window resets on every authenticated request, so an active
+      // user never sees a forced logout. 8 hours was the previous default and
+      // was the primary cause of daily re-login prompts in the Android app.
       maxAge: process.env.SESSION_TTL_MS
         ? Number(process.env.SESSION_TTL_MS)
-        : 8 * 60 * 60 * 1000,
+        : 30 * 24 * 60 * 60 * 1000,
     },
   }),
 );
